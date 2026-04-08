@@ -1,0 +1,27 @@
+{
+  "name": "elevate-ts-learning",
+  "version": "1.0.0",
+  "description": "Learn elevate-ts by building a todo app with functional programming patterns",
+  "private": false,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zambit/elevate-ts-learning"
+  },
+  "scripts": {
+    "dev": "cd todo-app && pnpm dev",
+    "build": "cd todo-app && pnpm build",
+    "preview": "cd todo-app && pnpm preview",
+    "test": "cd todo-app && pnpm test",
+    "test:watch": "cd todo-app && pnpm test:watch"
+  },
+  "keywords": [
+    "elevate-ts",
+    "functional-programming",
+    "typescript",
+    "learning",
+    "todo-app"
+  ],
+  "author": "Zambit",
+  "license": "Dual Licensed"
+}
