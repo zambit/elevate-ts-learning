@@ -1,4 +1,4 @@
-import { State } from 'elevate-ts/State.js'
+import { State } from '/Volumes/AWCDrive/git/zambit/elevate-ts/dist/esm/State.js'
 
 import type { Todo, Todos, Filter, AppState } from './types.js'
 
@@ -91,7 +91,7 @@ export const toggleWithHistory = (id: number): State<AppState, void> =>
     ]
   })
 
-" Remove a todo and save history. */
+/** Remove a todo and save history. */
 export const removeWithHistory = (id: number): State<AppState, void> =>
   State((state) => {
     const [, newTodos] = removeTodo(id).run(state.todos)
