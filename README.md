@@ -13,33 +13,40 @@ complete, production-ready todo application from scratch.
 
 ## The Learning Path
 
-### 📖 [01: Introduction](./01-introduction.md)
+### 📖 [01: Introduction](./lessons/01-introduction.md)
 
 Start here. Understand what we're building, why it's a good teaching tool, and the philosophy
 behind elevate-ts.
 
 **Time:** 5 min | **Level:** Beginner
 
-### 📖 [02: Core Concepts](./02-core-concepts.md)
+### 📖 [02: Core Concepts](./lessons/02-core-concepts.md)
 
 Learn the four monads we'll use: `Maybe`, `Either`, `State`, and `Validation`. Includes
 interactive examples and mental models.
 
 **Time:** 20 min | **Level:** Beginner
 
-### 📖 [03: Building the App](./03-building-the-app.md)
+### 📖 [03: Building the App](./lessons/03-building-the-app.md)
 
 Step-by-step walkthrough of the todo app architecture. See how the concepts from 02 combine
 into a real application.
 
 **Time:** 30 min | **Level:** Intermediate
 
-### 📖 [04: Testing Functional Code](./04-testing-functional-code.md)
+### 📖 [04: Testing Functional Code](./lessons/04-testing-functional-code.md)
 
 Learn patterns for testing pure functions, effects, and state machines. Includes examples from
 the todo app.
 
 **Time:** 15 min | **Level:** Intermediate
+
+### 📖 [05: State Monads in Practice](./lessons/05-state-fp-examples.md)
+
+Deep dive into undo/redo implementation, why the State monad pattern works, and how to apply it
+to real-world problems (games, transactions, forms, animations, configs, and more).
+
+**Time:** 25 min | **Level:** Intermediate
 
 ## Running the Todo App
 
@@ -77,10 +84,11 @@ The app runs on `http://localhost:5173`.
 
 ### Learning Docs
 
-- `01-introduction.md` — Philosophy and architecture overview
-- `02-core-concepts.md` — Detailed monad explanations with examples
-- `03-building-the-app.md` — Component-by-component walkthrough
-- `04-testing-functional-code.md` — Testing patterns and examples
+- `lessons/01-introduction.md` — Philosophy and architecture overview
+- `lessons/02-core-concepts.md` — Detailed monad explanations with examples
+- `lessons/03-building-the-app.md` — Component-by-component walkthrough
+- `lessons/04-testing-functional-code.md` — Testing patterns and examples
+- `lessons/05-state-fp-examples.md` — Undo/redo implementation and real-world applications
 
 ### Application Code
 
@@ -115,6 +123,23 @@ optional—the same patterns work with React, Vue, or vanilla.
 A: The code is beginner-friendly. Types are your allies; they catch mistakes and document
 intent. Read [TypeScript for JavaScript Programmers](https://www.typescriptlang.org/docs/handbook/typescript-for-javascript-programmers.html)
 in parallel.
+
+## License
+
+This teaching repository is licensed under **AGPL-3.0-or-later**. See [LICENSE](./LICENSE) for details.
+
+**In plain English:**
+
+- ✅ Use and learn from this code freely
+- ✅ Modify it for your own learning
+- ✅ Share improvements back (if you distribute changes)
+- ❌ Use in proprietary/closed-source projects without sharing improvements
+
+**No Warranty:** This code is provided as-is for educational purposes. It comes with no warranty
+of any kind. See section 15 of the AGPL-3.0 license for details.
+
+**Note:** The [elevate-ts](https://github.com/zambit/elevate-ts) library (which this repo teaches)
+may be available under different licensing terms. Check that repository for its license.
 
 ## Next Steps
 
