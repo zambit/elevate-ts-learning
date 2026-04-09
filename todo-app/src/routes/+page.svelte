@@ -61,14 +61,15 @@
 </script>
 
 <svelte:head>
-	<title>📝 My Todos - elevate-ts Todo App</title>
+	<title>📝 My Todos - elevate-ts Learning App</title>
 </svelte:head>
 
-<main>
-	<section class="header">
-		<h1>📝 My Todos</h1>
-		<p>Built with elevate-ts functional programming</p>
-	</section>
+<div class="page-wrapper">
+	<main>
+		<section class="header">
+			<h1>📝 My Todos</h1>
+			<p>Learning elevate-ts with functional programming</p>
+		</section>
 
 	<section class="input-section">
 		<input
@@ -140,7 +141,17 @@
 			</ul>
 		{/if}
 	</section>
-</main>
+	</main>
+
+	<footer class="footer">
+		<p>&copy; 2026 <a href="https://zambit.com" target="_blank">Zambit Technologies Corp.</a></p>
+		<nav>
+			<a href="#">Acceptable Use</a>
+			<a href="#">Privacy Policy</a>
+			<a href="#">Terms of Service</a>
+		</nav>
+	</footer>
+</div>
 
 <style>
 	:global(*) {
@@ -150,23 +161,31 @@
 	:global(body) {
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
 			Cantarell, sans-serif;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: #f4f4f4;
 		min-height: 100vh;
 		margin: 0;
 		padding: 20px;
 	}
 
-	main {
+	.page-wrapper {
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
 		max-width: 600px;
 		margin: 0 auto;
+	}
+
+	main {
+		flex: 1;
 		background: white;
 		border-radius: 12px;
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 		overflow: hidden;
+		margin-bottom: 20px;
 	}
 
 	.header {
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: #43464d;
 		color: white;
 		padding: 30px;
 		text-align: center;
@@ -175,12 +194,14 @@
 	.header h1 {
 		margin: 0 0 8px 0;
 		font-size: 28px;
+		color: #d6e032;
 	}
 
 	.header p {
 		margin: 0;
-		opacity: 0.9;
+		color: #999b07;
 		font-size: 14px;
+		font-weight: 500;
 	}
 
 	.input-section {
@@ -201,13 +222,13 @@
 
 	.todo-input:focus {
 		outline: none;
-		border-color: #667eea;
+		border-color: #d6e032;
 	}
 
 	.add-btn {
 		padding: 12px 24px;
-		background: #667eea;
-		color: white;
+		background: #d6e032;
+		color: #43464d;
 		border: none;
 		border-radius: 6px;
 		font-weight: 600;
@@ -216,7 +237,7 @@
 	}
 
 	.add-btn:hover {
-		background: #5568d3;
+		background: #c5cf2b;
 	}
 
 	.add-btn:active {
@@ -250,9 +271,9 @@
 	}
 
 	.filters button.active {
-		background: #667eea;
-		color: white;
-		border-color: #667eea;
+		background: #d6e032;
+		color: #43464d;
+		border-color: #d6e032;
 	}
 
 	.filters button.undo-btn {
@@ -265,13 +286,13 @@
 	}
 
 	.filters button.clear-btn {
-		background: #ff6b6b;
+		background: #e74c3c;
 		color: white;
-		border-color: #ff6b6b;
+		border-color: #e74c3c;
 	}
 
 	.filters button.clear-btn:hover {
-		background: #ee5a52;
+		background: #c0392b;
 	}
 
 	.count {
@@ -341,14 +362,52 @@
 	}
 
 	.delete-btn:hover {
-		color: #ff5252;
+		color: #e74c3c;
+	}
+
+	.footer {
+		background: #43464d;
+		color: white;
+		padding: 20px;
+		text-align: center;
+		border-radius: 12px;
+		margin-top: auto;
+	}
+
+	.footer p {
+		margin: 0 0 12px 0;
+		font-size: 14px;
+	}
+
+	.footer a {
+		color: #d6e032;
+		text-decoration: none;
+		transition: opacity 0.2s;
+	}
+
+	.footer a:hover {
+		opacity: 0.8;
+	}
+
+	.footer nav {
+		display: flex;
+		gap: 20px;
+		justify-content: center;
+		flex-wrap: wrap;
+	}
+
+	.footer nav a {
+		font-size: 12px;
 	}
 
 	@media (max-width: 600px) {
+		.page-wrapper {
+			max-width: 100%;
+		}
+
 		main {
 			margin: 0;
 			border-radius: 0;
-			min-height: 100vh;
 		}
 
 		.header {
@@ -379,6 +438,16 @@
 
 		.add-btn {
 			width: 100%;
+		}
+
+		.footer {
+			border-radius: 0;
+			margin: 0;
+		}
+
+		.footer nav {
+			flex-direction: column;
+			gap: 10px;
 		}
 	}
 </style>
