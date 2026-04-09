@@ -10,14 +10,16 @@
 		countTodos,
 		saveTodos,
 		loadTodos,
-		undo
+		undo,
+		redo
 	} from '$lib/domain.js'
 	import type { AppState } from '$lib/types.js'
 
 	let appState = $state<AppState>({
 		todos: [],
 		filter: 'All',
-		history: []
+		history: [],
+		future: []
 	})
 
 	let inputValue = $state('')
@@ -27,7 +29,8 @@
 		appState = {
 			todos: loaded,
 			filter: 'All',
-			history: []
+			history: [],
+			future: []
 		}
 	})
 
@@ -58,6 +61,7 @@
 	let filtered = $derived(getFilteredTodos(appState.filter, appState.todos))
 	let counts = $derived(countTodos(appState.todos))
 	let canUndo = $derived(appState.history.length > 0)
+	let canRedo = $derived(appState.future.length > 0)
 </script>
 
 <svelte:head>
@@ -103,6 +107,9 @@
 		</button>
 		<button onclick={() => execute(undo())} disabled={!canUndo} class="undo-btn">
 			↶ Undo
+		</button>
+		<button onclick={() => execute(redo())} disabled={!canRedo} class="redo-btn">
+			↷ Redo
 		</button>
 		{#if counts.done > 0}
 			<button onclick={() => execute(clearCompletedWithHistory())} class="clear-btn">
@@ -280,7 +287,8 @@
 		margin-left: auto;
 	}
 
-	.filters button.undo-btn:disabled {
+	.filters button.undo-btn:disabled,
+	.filters button.redo-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
