@@ -16,4 +16,5 @@ export interface AppState {
   readonly todos: Todos
   readonly filter: Filter
   readonly history: readonly Todos[]
+  readonly future: readonly Todos[]
 }

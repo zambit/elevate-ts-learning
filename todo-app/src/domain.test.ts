@@ -9,7 +9,8 @@ import {
   countTodos,
   addWithHistory,
   toggleWithHistory,
-  undo
+  undo,
+  redo
 } from '$lib/domain'
 import type { Todos, AppState } from '$lib/types'
 
@@ -23,7 +24,8 @@ describe('domain', () => {
   const initialState: AppState = {
     todos: [],
     filter: 'All',
-    history: []
+    history: [],
+    future: []
   }
 
   describe('addTodo', () => {
@@ -166,11 +168,13 @@ describe('domain', () => {
       const state1: AppState = {
         todos: sampleTodos,
         filter: 'All',
-        history: []
+        history: [],
+        future: []
       }
       const [_, state2] = toggleWithHistory(1).run(state1)
       expect(state2.history).toEqual([state1.todos])
       expect(state2.todos[0].done).toBe(true)
+      expect(state2.future).toHaveLength(0)  // Future is cleared on new action
     })
 
     it('undo restores previous state', () => {
@@ -181,6 +185,7 @@ describe('domain', () => {
       const [___, undoneState] = undo().run(state2)
       expect(undoneState.todos).toEqual(state1.todos)
       expect(undoneState.history).toHaveLength(1)
+      expect(undoneState.future).toHaveLength(1)  // Current state moved to future for redo
     })
 
     it('undo with empty history does nothing', () => {
@@ -196,6 +201,65 @@ describe('domain', () => {
 
       expect(state3.history).toHaveLength(3)
       expect(state3.todos).toHaveLength(3)
+    })
+
+    it('redo restores undone state', () => {
+      const state = initialState
+      const [_,state1] = addWithHistory('First').run(state)
+      const [__, state2] = addWithHistory('Second').run(state1)
+      const [___, state3] = undo().run(state2)
+
+      // After undo, future should have the undone state
+      expect(state3.future).toHaveLength(1)
+      expect(state3.todos).toEqual(state1.todos)
+
+      // Redo should restore the second state
+      const [____, state4] = redo().run(state3)
+      expect(state4.todos).toEqual(state2.todos)
+      expect(state4.history).toHaveLength(2)
+      expect(state4.future).toHaveLength(0)
+    })
+
+    it('redo with empty future does nothing', () => {
+      const [_, result] = redo().run(initialState)
+      expect(result).toEqual(initialState)
+    })
+
+    it('new action clears future (redo chain broken)', () => {
+      const state = initialState
+      const [_,state1] = addWithHistory('First').run(state)
+      const [__, state2] = addWithHistory('Second').run(state1)
+      const [___, state3] = undo().run(state2)
+
+      // state3 has future with the undone state
+      expect(state3.future).toHaveLength(1)
+
+      // Perform a new action - this clears future
+      const [____, state4] = addWithHistory('Third').run(state3)
+      expect(state4.future).toHaveLength(0)  // Future is cleared
+      expect(state4.todos).toHaveLength(2)   // We have First and Third
+    })
+
+    it('undo/redo cycle preserves state', () => {
+      const state = initialState
+      const [_,state1] = addWithHistory('First').run(state)
+      const [__, state2] = addWithHistory('Second').run(state1)
+      const [___, state3] = addWithHistory('Third').run(state2)
+
+      // Undo twice
+      const [____, state4] = undo().run(state3)
+      const [_____, state5] = undo().run(state4)
+
+      expect(state5.todos).toEqual(state1.todos)
+      expect(state5.future).toHaveLength(2)
+
+      // Redo twice
+      const [______, state6] = redo().run(state5)
+      const [_______, state7] = redo().run(state6)
+
+      expect(state7.todos).toEqual(state3.todos)
+      expect(state7.history).toHaveLength(3)
+      expect(state7.future).toHaveLength(0)
     })
   })
 

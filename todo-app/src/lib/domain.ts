@@ -224,13 +224,15 @@ export const addWithHistory = (title: string): State<AppState, Todo> =>
     // Step 2: Build the new AppState with:
     //   - Updated todos
     //   - Previous todos saved in history
+    //   - Future cleared (new action invalidates redo chain)
     //   - Filter unchanged
     return [
       newTodo,  // Return the created todo to the caller
       {
         ...state,                                    // Keep filter and other state
         todos: newTodos,                             // Updated todo list
-        history: [...state.history, state.todos]     // Save OLD todos for undo
+        history: [...state.history, state.todos],   // Save OLD todos for undo
+        future: []                                   // Clear redo chain on new action
       }
     ]
   })
@@ -258,7 +260,8 @@ export const toggleWithHistory = (id: number): State<AppState, void> =>
       {
         ...state,
         todos: newTodos,
-        history: [...state.history, state.todos]  // Save for undo
+        history: [...state.history, state.todos],  // Save for undo
+        future: []                                   // Clear redo chain on new action
       }
     ]
   })
@@ -282,7 +285,8 @@ export const removeWithHistory = (id: number): State<AppState, void> =>
       {
         ...state,
         todos: newTodos,
-        history: [...state.history, state.todos]  // Save for undo
+        history: [...state.history, state.todos],  // Save for undo
+        future: []                                   // Clear redo chain on new action
       }
     ]
   })
@@ -305,7 +309,8 @@ export const clearCompletedWithHistory = (): State<AppState, void> =>
       {
         ...state,
         todos: newTodos,
-        history: [...state.history, state.todos]  // Save for undo
+        history: [...state.history, state.todos],  // Save for undo
+        future: []                                   // Clear redo chain on new action
       }
     ]
   })
@@ -316,10 +321,12 @@ export const clearCompletedWithHistory = (): State<AppState, void> =>
  * How it works:
  *   1. Check if there's anything in the history
  *   2. If yes, pop the last item from history (that's our previous state)
- *   3. Restore those todos and remove that entry from history
- *   4. If no, do nothing (can't undo with empty history)
+ *   3. Save the current todos to future (so we can redo)
+ *   4. Restore those todos and update history/future
+ *   5. If no history, do nothing (can't undo with empty history)
  *
- * The filter is preserved across undo operations (only todos and history change).
+ * The current todos are moved to the future stack, allowing redo.
+ * The filter is preserved across undo operations (only todos, history, and future change).
  *
  * @returns State monad that either undoes the last action or does nothing
  *
@@ -328,6 +335,7 @@ export const clearCompletedWithHistory = (): State<AppState, void> =>
  *   const [_, newState] = undo().run(appState)
  *   // newState.todos is back to having only 'Task 1'
  *   // newState.history has one fewer entry
+ *   // newState.future contains 'Task 2' state for potential redo
  *
  *   // If history is empty:
  *   const [_, sameState] = undo().run(appState)
@@ -344,6 +352,8 @@ export const undo = (): State<AppState, void> =>
     const previousTodos = state.history[state.history.length - 1]
     // Remove that entry from history (it's no longer "previous", it's current)
     const newHistory = state.history.slice(0, -1)
+    // Save current todos to future so we can redo this action
+    const newFuture = [...state.future, state.todos]
 
     return [
       undefined,
@@ -353,7 +363,64 @@ export const undo = (): State<AppState, void> =>
         // Keep the filter unchanged (undo doesn't affect filter)
         filter: state.filter,
         // Shrink history to remove what we just restored
-        history: newHistory
+        history: newHistory,
+        // Grow future to enable redo
+        future: newFuture
+      }
+    ]
+  })
+
+/**
+ * Redo the last undone action by restoring todos from the future stack.
+ *
+ * How it works:
+ *   1. Check if there's anything in the future (i.e., an undone action)
+ *   2. If yes, pop the last item from future
+ *   3. Save the current todos to history
+ *   4. Restore those todos and update history/future
+ *   5. If no future, do nothing (can't redo with empty future)
+ *
+ * The current todos are moved to history, allowing another undo if desired.
+ * The filter is preserved across redo operations.
+ *
+ * @returns State monad that either redoes the last undone action or does nothing
+ *
+ * @example
+ *   // After: addWithHistory('Task 1'), addWithHistory('Task 2'), undo()
+ *   const [_, newState] = redo().run(appState)
+ *   // newState.todos is back to having 'Task 2'
+ *   // newState.history has one more entry
+ *   // newState.future is shorter by one
+ *
+ *   // If future is empty:
+ *   const [_, sameState] = redo().run(appState)
+ *   // sameState === appState (nothing changed)
+ */
+export const redo = (): State<AppState, void> =>
+  State((state) => {
+    // Guard: if no future, return state unchanged
+    if (state.future.length === 0) {
+      return [undefined, state]
+    }
+
+    // Get the last entry in future (the state we're redoing)
+    const redoTodos = state.future[state.future.length - 1]
+    // Remove that entry from future (it's no longer "future", it's current)
+    const newFuture = state.future.slice(0, -1)
+    // Save current todos to history so we can undo again
+    const newHistory = [...state.history, state.todos]
+
+    return [
+      undefined,
+      {
+        // Restore the todos to the redone state
+        todos: redoTodos,
+        // Keep the filter unchanged (redo doesn't affect filter)
+        filter: state.filter,
+        // Grow history to enable undo
+        history: newHistory,
+        // Shrink future since we're consuming it
+        future: newFuture
       }
     ]
   })
@@ -394,6 +461,10 @@ export const saveTodos = (todos: Todos): void => {
  * This performs a side effect (reading from the browser's storage).
  * Call this on app startup to restore the saved todo list.
  *
+ * Note: Only todos are persisted to localStorage. History and future are
+ * session-only and reset on page refresh (this is intentional - undo/redo
+ * should not survive across browser sessions).
+ *
  * @returns The saved todos, or an empty array if nothing is stored
  *
  * @example
@@ -401,7 +472,8 @@ export const saveTodos = (todos: Todos): void => {
  *   const initialState = {
  *     todos,
  *     filter: 'All',
- *     history: []
+ *     history: [],
+ *     future: []
  *   }
  */
 export const loadTodos = (): Todos => {
