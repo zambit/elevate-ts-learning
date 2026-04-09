@@ -10,8 +10,8 @@ import {
   addWithHistory,
   toggleWithHistory,
   undo
-} from '../src/domain.js'
-import type { Todos, AppState } from '../src/types.js'
+} from '$lib/domain'
+import type { Todos, AppState } from '$lib/types'
 
 describe('domain', () => {
   const emptyTodos: Todos = []
