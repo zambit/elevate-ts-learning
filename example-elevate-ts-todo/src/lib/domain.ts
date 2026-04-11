@@ -1,6 +1,6 @@
-import { State } from '/Volumes/AWCDrive/git/zambit/elevate-ts/dist/esm/State.js'
+import { State } from '/Volumes/AWCDrive/git/zambit/elevate-ts/dist/esm/State.js';
 
-import type { Todo, Todos, Filter, AppState } from './types.js'
+import type { Todo, Todos, Filter, AppState } from './types.js';
 
 // ============================================================================
 // Todo List Operations (pure functions over Todos)
@@ -34,21 +34,21 @@ import type { Todo, Todos, Filter, AppState } from './types.js'
  *   // todos = [{ id: 1, title: 'Learn FP', done: false }]
  */
 export const addTodo = (title: string): State<Todos, Todo> =>
-  State((todos) => {
-    // Extract all existing IDs to find the highest one
-    const ids = todos.map((t) => t.id)
-    // Generate next ID: if todos exist, increment the max ID; otherwise start at 1
-    const nextId = ids.length > 0 ? Math.max(...ids) + 1 : 1
-    // Create the new todo with the computed ID and uncompleted status
-    const newTodo: Todo = {
-      id: nextId,
-      title,
-      done: false
-    }
-    // Return both the created todo AND the updated todos array
-    // [what the caller gets, new state]
-    return [newTodo, [...todos, newTodo]]
-  })
+	State((todos) => {
+		// Extract all existing IDs to find the highest one
+		const ids = todos.map((t) => t.id);
+		// Generate next ID: if todos exist, increment the max ID; otherwise start at 1
+		const nextId = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+		// Create the new todo with the computed ID and uncompleted status
+		const newTodo: Todo = {
+			id: nextId,
+			title,
+			done: false
+		};
+		// Return both the created todo AND the updated todos array
+		// [what the caller gets, new state]
+		return [newTodo, [...todos, newTodo]];
+	});
 
 /**
  * Toggle a todo's completion status (done ↔ not done).
@@ -65,12 +65,12 @@ export const addTodo = (title: string): State<Todos, Todo> =>
  *   // todos = [{ id: 1, title: 'Task', done: true }]
  */
 export const toggleTodo = (id: number): State<Todos, void> =>
-  State((todos) => [
-    // Return undefined since toggling doesn't produce a meaningful result value
-    undefined,
-    // Map over todos: if ID matches, flip the done flag; otherwise keep unchanged
-    todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-  ])
+	State((todos) => [
+		// Return undefined since toggling doesn't produce a meaningful result value
+		undefined,
+		// Map over todos: if ID matches, flip the done flag; otherwise keep unchanged
+		todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
+	]);
 
 /**
  * Remove a todo from the list by ID.
@@ -87,11 +87,11 @@ export const toggleTodo = (id: number): State<Todos, void> =>
  *   // todos = [{ id: 2, title: 'Task 2', done: false }]
  */
 export const removeTodo = (id: number): State<Todos, void> =>
-  State((todos) => [
-    undefined,
-    // Filter out the todo with matching ID, keeping all others
-    todos.filter((t) => t.id !== id)
-  ])
+	State((todos) => [
+		undefined,
+		// Filter out the todo with matching ID, keeping all others
+		todos.filter((t) => t.id !== id)
+	]);
 
 /**
  * Remove all completed todos from the list.
@@ -107,11 +107,11 @@ export const removeTodo = (id: number): State<Todos, void> =>
  *   // todos = [{ id: 2, title: 'TODO', done: false }]
  */
 export const clearCompleted = (): State<Todos, void> =>
-  State((todos) => [
-    undefined,
-    // Keep only todos that are NOT done
-    todos.filter((t) => !t.done)
-  ])
+	State((todos) => [
+		undefined,
+		// Keep only todos that are NOT done
+		todos.filter((t) => !t.done)
+	]);
 
 // ============================================================================
 // Queries (pure functions that don't change state)
@@ -142,11 +142,11 @@ export const clearCompleted = (): State<Todos, void> =>
  *   getFilteredTodos('All', todos)      // all todos (no filter)
  */
 export const getFilteredTodos = (filter: Filter, todos: Todos): readonly Todo[] =>
-  filter === 'All'
-    ? todos  // Show everything
-    : filter === 'Active'
-      ? todos.filter((t) => !t.done)  // Show only incomplete todos
-      : todos.filter((t) => t.done)   // Show only completed todos
+	filter === 'All'
+		? todos // Show everything
+		: filter === 'Active'
+			? todos.filter((t) => !t.done) // Show only incomplete todos
+			: todos.filter((t) => t.done); // Show only completed todos
 
 /**
  * Count todos by their completion status.
@@ -162,12 +162,12 @@ export const getFilteredTodos = (filter: Filter, todos: Todos): readonly Todo[] 
  *   console.log(`${counts.active} of ${counts.total} tasks remaining`)
  */
 export const countTodos = (
-  todos: Todos
+	todos: Todos
 ): { readonly total: number; readonly done: number; readonly active: number } => ({
-  total: todos.length,                              // Total number of todos
-  done: todos.filter((t) => t.done).length,         // Number of completed todos
-  active: todos.filter((t) => !t.done).length       // Number of incomplete todos
-})
+	total: todos.length, // Total number of todos
+	done: todos.filter((t) => t.done).length, // Number of completed todos
+	active: todos.filter((t) => !t.done).length // Number of incomplete todos
+});
 
 // ============================================================================
 // App State Operations (State<AppState, A>)
@@ -195,11 +195,11 @@ export const countTodos = (
  *   // newState has the same todos and history, but filter changed
  */
 export const changeFilter = (filter: Filter): State<AppState, void> =>
-  State((state) => [
-    undefined,
-    // Spread all current state but replace the filter
-    { ...state, filter }
-  ])
+	State((state) => [
+		undefined,
+		// Spread all current state but replace the filter
+		{ ...state, filter }
+	]);
 
 /**
  * Add a todo and save the previous state in history for undo functionality.
@@ -217,25 +217,25 @@ export const changeFilter = (filter: Filter): State<AppState, void> =>
  *   // newState.history contains the previous todos for undo
  */
 export const addWithHistory = (title: string): State<AppState, Todo> =>
-  State((state) => {
-    // Step 1: Run the basic addTodo operation on the current todos
-    const [newTodo, newTodos] = addTodo(title).run(state.todos)
+	State((state) => {
+		// Step 1: Run the basic addTodo operation on the current todos
+		const [newTodo, newTodos] = addTodo(title).run(state.todos);
 
-    // Step 2: Build the new AppState with:
-    //   - Updated todos
-    //   - Previous todos saved in history
-    //   - Future cleared (new action invalidates redo chain)
-    //   - Filter unchanged
-    return [
-      newTodo,  // Return the created todo to the caller
-      {
-        ...state,                                    // Keep filter and other state
-        todos: newTodos,                             // Updated todo list
-        history: [...state.history, state.todos],   // Save OLD todos for undo
-        future: []                                   // Clear redo chain on new action
-      }
-    ]
-  })
+		// Step 2: Build the new AppState with:
+		//   - Updated todos
+		//   - Previous todos saved in history
+		//   - Future cleared (new action invalidates redo chain)
+		//   - Filter unchanged
+		return [
+			newTodo, // Return the created todo to the caller
+			{
+				...state, // Keep filter and other state
+				todos: newTodos, // Updated todo list
+				history: [...state.history, state.todos], // Save OLD todos for undo
+				future: [] // Clear redo chain on new action
+			}
+		];
+	});
 
 /**
  * Toggle a todo's completion status and save history for undo.
@@ -252,19 +252,19 @@ export const addWithHistory = (title: string): State<AppState, Todo> =>
  *   // newState.history contains the previous todos
  */
 export const toggleWithHistory = (id: number): State<AppState, void> =>
-  State((state) => {
-    // Run the basic toggle operation
-    const [, newTodos] = toggleTodo(id).run(state.todos)
-    return [
-      undefined,
-      {
-        ...state,
-        todos: newTodos,
-        history: [...state.history, state.todos],  // Save for undo
-        future: []                                   // Clear redo chain on new action
-      }
-    ]
-  })
+	State((state) => {
+		// Run the basic toggle operation
+		const [, newTodos] = toggleTodo(id).run(state.todos);
+		return [
+			undefined,
+			{
+				...state,
+				todos: newTodos,
+				history: [...state.history, state.todos], // Save for undo
+				future: [] // Clear redo chain on new action
+			}
+		];
+	});
 
 /**
  * Remove a todo and save history for undo.
@@ -278,18 +278,18 @@ export const toggleWithHistory = (id: number): State<AppState, void> =>
  *   // newState.history contains the previous todos (including the removed one)
  */
 export const removeWithHistory = (id: number): State<AppState, void> =>
-  State((state) => {
-    const [, newTodos] = removeTodo(id).run(state.todos)
-    return [
-      undefined,
-      {
-        ...state,
-        todos: newTodos,
-        history: [...state.history, state.todos],  // Save for undo
-        future: []                                   // Clear redo chain on new action
-      }
-    ]
-  })
+	State((state) => {
+		const [, newTodos] = removeTodo(id).run(state.todos);
+		return [
+			undefined,
+			{
+				...state,
+				todos: newTodos,
+				history: [...state.history, state.todos], // Save for undo
+				future: [] // Clear redo chain on new action
+			}
+		];
+	});
 
 /**
  * Clear all completed todos and save history for undo.
@@ -302,18 +302,18 @@ export const removeWithHistory = (id: number): State<AppState, void> =>
  *   // newState.history has the previous todos available for undo
  */
 export const clearCompletedWithHistory = (): State<AppState, void> =>
-  State((state) => {
-    const [, newTodos] = clearCompleted().run(state.todos)
-    return [
-      undefined,
-      {
-        ...state,
-        todos: newTodos,
-        history: [...state.history, state.todos],  // Save for undo
-        future: []                                   // Clear redo chain on new action
-      }
-    ]
-  })
+	State((state) => {
+		const [, newTodos] = clearCompleted().run(state.todos);
+		return [
+			undefined,
+			{
+				...state,
+				todos: newTodos,
+				history: [...state.history, state.todos], // Save for undo
+				future: [] // Clear redo chain on new action
+			}
+		];
+	});
 
 /**
  * Undo the last action by restoring the previous todos state.
@@ -342,33 +342,33 @@ export const clearCompletedWithHistory = (): State<AppState, void> =>
  *   // sameState === appState (nothing changed)
  */
 export const undo = (): State<AppState, void> =>
-  State((state) => {
-    // Guard: if no history, return state unchanged
-    if (state.history.length === 0) {
-      return [undefined, state]
-    }
+	State((state) => {
+		// Guard: if no history, return state unchanged
+		if (state.history.length === 0) {
+			return [undefined, state];
+		}
 
-    // Get the last entry in history (the state before the previous action)
-    const previousTodos = state.history[state.history.length - 1]
-    // Remove that entry from history (it's no longer "previous", it's current)
-    const newHistory = state.history.slice(0, -1)
-    // Save current todos to future so we can redo this action
-    const newFuture = [...state.future, state.todos]
+		// Get the last entry in history (the state before the previous action)
+		const previousTodos = state.history[state.history.length - 1];
+		// Remove that entry from history (it's no longer "previous", it's current)
+		const newHistory = state.history.slice(0, -1);
+		// Save current todos to future so we can redo this action
+		const newFuture = [...state.future, state.todos];
 
-    return [
-      undefined,
-      {
-        // Restore the todos to their previous state
-        todos: previousTodos,
-        // Keep the filter unchanged (undo doesn't affect filter)
-        filter: state.filter,
-        // Shrink history to remove what we just restored
-        history: newHistory,
-        // Grow future to enable redo
-        future: newFuture
-      }
-    ]
-  })
+		return [
+			undefined,
+			{
+				// Restore the todos to their previous state
+				todos: previousTodos,
+				// Keep the filter unchanged (undo doesn't affect filter)
+				filter: state.filter,
+				// Shrink history to remove what we just restored
+				history: newHistory,
+				// Grow future to enable redo
+				future: newFuture
+			}
+		];
+	});
 
 /**
  * Redo the last undone action by restoring todos from the future stack.
@@ -397,33 +397,33 @@ export const undo = (): State<AppState, void> =>
  *   // sameState === appState (nothing changed)
  */
 export const redo = (): State<AppState, void> =>
-  State((state) => {
-    // Guard: if no future, return state unchanged
-    if (state.future.length === 0) {
-      return [undefined, state]
-    }
+	State((state) => {
+		// Guard: if no future, return state unchanged
+		if (state.future.length === 0) {
+			return [undefined, state];
+		}
 
-    // Get the last entry in future (the state we're redoing)
-    const redoTodos = state.future[state.future.length - 1]
-    // Remove that entry from future (it's no longer "future", it's current)
-    const newFuture = state.future.slice(0, -1)
-    // Save current todos to history so we can undo again
-    const newHistory = [...state.history, state.todos]
+		// Get the last entry in future (the state we're redoing)
+		const redoTodos = state.future[state.future.length - 1];
+		// Remove that entry from future (it's no longer "future", it's current)
+		const newFuture = state.future.slice(0, -1);
+		// Save current todos to history so we can undo again
+		const newHistory = [...state.history, state.todos];
 
-    return [
-      undefined,
-      {
-        // Restore the todos to the redone state
-        todos: redoTodos,
-        // Keep the filter unchanged (redo doesn't affect filter)
-        filter: state.filter,
-        // Grow history to enable undo
-        history: newHistory,
-        // Shrink future since we're consuming it
-        future: newFuture
-      }
-    ]
-  })
+		return [
+			undefined,
+			{
+				// Restore the todos to the redone state
+				todos: redoTodos,
+				// Keep the filter unchanged (redo doesn't affect filter)
+				filter: state.filter,
+				// Grow history to enable undo
+				history: newHistory,
+				// Shrink future since we're consuming it
+				future: newFuture
+			}
+		];
+	});
 
 // ============================================================================
 // Persistence (side effects, but predictable)
@@ -437,7 +437,7 @@ export const redo = (): State<AppState, void> =>
 //
 // ============================================================================
 
-const STORAGE_KEY = 'elevate-ts-todos'
+const STORAGE_KEY = 'elevate-ts-todos';
 
 /**
  * Save todos to browser localStorage.
@@ -452,8 +452,8 @@ const STORAGE_KEY = 'elevate-ts-todos'
  *   saveTodos(newState.todos)  // Persist to localStorage
  */
 export const saveTodos = (todos: Todos): void => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
-}
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+};
 
 /**
  * Load todos from browser localStorage.
@@ -477,6 +477,6 @@ export const saveTodos = (todos: Todos): void => {
  *   }
  */
 export const loadTodos = (): Todos => {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  return saved ? JSON.parse(saved) : []
-}
+	const saved = localStorage.getItem(STORAGE_KEY);
+	return saved ? JSON.parse(saved) : [];
+};

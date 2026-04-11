@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte'
+	import { onMount } from 'svelte';
+	import { State } from '/Volumes/AWCDrive/git/zambit/elevate-ts/dist/esm/State.js';
 	import {
 		addWithHistory,
 		toggleWithHistory,
@@ -12,56 +13,56 @@
 		loadTodos,
 		undo,
 		redo
-	} from '$lib/domain.js'
-	import type { AppState } from '$lib/types.js'
+	} from '$lib/domain.js';
+	import type { AppState } from '$lib/types.js';
 
 	let appState = $state<AppState>({
 		todos: [],
 		filter: 'All',
 		history: [],
 		future: []
-	})
+	});
 
-	let inputValue = $state('')
+	let inputValue = $state('');
 
 	onMount(() => {
-		const loaded = loadTodos()
+		const loaded = loadTodos();
 		appState = {
 			todos: loaded,
 			filter: 'All',
 			history: [],
 			future: []
-		}
-	})
+		};
+	});
 
 	/** Run a domain function and persist state */
-	const execute = (fn: any) => {
-		const [_, newState] = fn.run(appState)
-		appState = newState
-		saveTodos(appState.todos)
-	}
+	const execute = (fn: State<AppState, unknown>) => {
+		const [, newState] = fn.run(appState);
+		appState = newState;
+		saveTodos(appState.todos);
+	};
 
 	/** Handle adding a new todo */
 	const handleAddTodo = () => {
-		const title = inputValue.trim()
+		const title = inputValue.trim();
 		if (title) {
-			execute(addWithHistory(title))
-			inputValue = ''
+			execute(addWithHistory(title));
+			inputValue = '';
 		}
-	}
+	};
 
 	/** Handle adding on Enter key */
 	const handleKeydown = (e: KeyboardEvent) => {
 		if (e.key === 'Enter') {
-			handleAddTodo()
+			handleAddTodo();
 		}
-	}
+	};
 
 	// Reactive derived values
-	let filtered = $derived(getFilteredTodos(appState.filter, appState.todos))
-	let counts = $derived(countTodos(appState.todos))
-	let canUndo = $derived(appState.history.length > 0)
-	let canRedo = $derived(appState.future.length > 0)
+	let filtered = $derived(getFilteredTodos(appState.filter, appState.todos));
+	let counts = $derived(countTodos(appState.todos));
+	let canUndo = $derived(appState.history.length > 0);
+	let canRedo = $derived(appState.future.length > 0);
 </script>
 
 <svelte:head>
@@ -75,79 +76,72 @@
 			<p>Learning elevate-ts with functional programming</p>
 		</section>
 
-	<section class="input-section">
-		<input
-			type="text"
-			placeholder="Add a new todo... (press Enter)"
-			bind:value={inputValue}
-			onkeydown={handleKeydown}
-			class="todo-input"
-		/>
-		<button onclick={handleAddTodo} class="add-btn">Add</button>
-	</section>
+		<section class="input-section">
+			<input
+				type="text"
+				placeholder="Add a new todo... (press Enter)"
+				bind:value={inputValue}
+				onkeydown={handleKeydown}
+				class="todo-input"
+			/>
+			<button onclick={handleAddTodo} class="add-btn">Add</button>
+		</section>
 
-	<section class="filters">
-		<button
-			onclick={() => execute(changeFilter('All'))}
-			class:active={appState.filter === 'All'}
-		>
-			All <span class="count">{counts.total}</span>
-		</button>
-		<button
-			onclick={() => execute(changeFilter('Active'))}
-			class:active={appState.filter === 'Active'}
-		>
-			Active <span class="count">{counts.active}</span>
-		</button>
-		<button
-			onclick={() => execute(changeFilter('Completed'))}
-			class:active={appState.filter === 'Completed'}
-		>
-			Done <span class="count">{counts.done}</span>
-		</button>
-		<button onclick={() => execute(undo())} disabled={!canUndo} class="undo-btn">
-			↶ Undo
-		</button>
-		<button onclick={() => execute(redo())} disabled={!canRedo} class="redo-btn">
-			↷ Redo
-		</button>
-		{#if counts.done > 0}
-			<button onclick={() => execute(clearCompletedWithHistory())} class="clear-btn">
-				Clear Done
+		<section class="filters">
+			<button onclick={() => execute(changeFilter('All'))} class:active={appState.filter === 'All'}>
+				All <span class="count">{counts.total}</span>
 			</button>
-		{/if}
-	</section>
+			<button
+				onclick={() => execute(changeFilter('Active'))}
+				class:active={appState.filter === 'Active'}
+			>
+				Active <span class="count">{counts.active}</span>
+			</button>
+			<button
+				onclick={() => execute(changeFilter('Completed'))}
+				class:active={appState.filter === 'Completed'}
+			>
+				Done <span class="count">{counts.done}</span>
+			</button>
+			<button onclick={() => execute(undo())} disabled={!canUndo} class="undo-btn"> ↶ Undo </button>
+			<button onclick={() => execute(redo())} disabled={!canRedo} class="redo-btn"> ↷ Redo </button>
+			{#if counts.done > 0}
+				<button onclick={() => execute(clearCompletedWithHistory())} class="clear-btn">
+					Clear Done
+				</button>
+			{/if}
+		</section>
 
-	<section class="todos">
-		{#if filtered.length === 0}
-			<p class="empty-state">
-				{appState.filter === 'All'
-					? 'No todos yet. Add one to get started!'
-					: `No ${appState.filter.toLowerCase()} todos.`}
-			</p>
-		{:else}
-			<ul>
-				{#each filtered as todo (todo.id)}
-					<li class:done={todo.done}>
-						<input
-							type="checkbox"
-							checked={todo.done}
-							onchange={() => execute(toggleWithHistory(todo.id))}
-							aria-label={`Toggle todo: ${todo.title}`}
-						/>
-						<span class="title">{todo.title}</span>
-						<button
-							onclick={() => execute(removeWithHistory(todo.id))}
-							class="delete-btn"
-							aria-label={`Delete todo: ${todo.title}`}
-						>
-							✕
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
+		<section class="todos">
+			{#if filtered.length === 0}
+				<p class="empty-state">
+					{appState.filter === 'All'
+						? 'No todos yet. Add one to get started!'
+						: `No ${appState.filter.toLowerCase()} todos.`}
+				</p>
+			{:else}
+				<ul>
+					{#each filtered as todo (todo.id)}
+						<li class:done={todo.done}>
+							<input
+								type="checkbox"
+								checked={todo.done}
+								onchange={() => execute(toggleWithHistory(todo.id))}
+								aria-label={`Toggle todo: ${todo.title}`}
+							/>
+							<span class="title">{todo.title}</span>
+							<button
+								onclick={() => execute(removeWithHistory(todo.id))}
+								class="delete-btn"
+								aria-label={`Delete todo: ${todo.title}`}
+							>
+								✕
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
 	</main>
 
 	<footer class="footer">
@@ -166,8 +160,8 @@
 	}
 
 	:global(body) {
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
-			Cantarell, sans-serif;
+		font-family:
+			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 		background: #f4f4f4;
 		min-height: 100vh;
 		margin: 0;

@@ -1,6 +1,6 @@
 packages:
   - '.'
   - '../elevate-ts'
-  - 'todo-app'
+  - 'example-elevate-ts-todo'
 onlyBuiltDependencies:
   - esbuild
