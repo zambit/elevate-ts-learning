@@ -9,11 +9,11 @@
     "url": "https://github.com/zambit/elevate-ts-learning"
   },
   "scripts": {
-    "dev": "pnpm -C todo-app dev",
-    "build": "pnpm -C todo-app build",
-    "preview": "pnpm -C todo-app preview",
-    "test": "pnpm -C todo-app test",
-    "test:watch": "pnpm -C todo-app test:watch"
+    "dev": "pnpm -C example-elevate-ts-todo dev",
+    "build": "pnpm -C example-elevate-ts-todo build",
+    "preview": "pnpm -C example-elevate-ts-todo preview",
+    "test": "pnpm -C example-elevate-ts-todo test",
+    "test:watch": "pnpm -C example-elevate-ts-todo test:watch"
   },
   "keywords": [
     "elevate-ts",
