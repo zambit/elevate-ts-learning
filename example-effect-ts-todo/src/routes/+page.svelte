@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../styles/tokens.css';
 	import { onMount } from 'svelte';
 	import { Effect, Ref } from 'effect';
 	import {
@@ -18,17 +19,6 @@
 	import type { AppState } from '$lib/types.js';
 	import { TodoNotFound, StorageError } from '$lib/errors.js';
 
-	// ============================================================================
-	// initialize Ref at module load (top-level await in SvelteKit)
-	// ============================================================================
-	//
-	// elevate-ts: const [, todos] = addTodo('...').run([])
-	// effect-ts:  const stateRef = await AppRuntime.runPromise(Ref.make(...))
-	//
-	// The Ref lives for the lifetime of the component. Svelte's onMount ensures
-	// it's ready before any UI interaction occurs.
-	// ============================================================================
-
 	const stateRef = await AppRuntime.runPromise(
 		Ref.make<AppState>({ todos: [], filter: 'All', history: [], future: [] })
 	);
@@ -36,25 +26,6 @@
 	let appState = $state<AppState>({ todos: [], filter: 'All', history: [], future: [] });
 	let inputValue = $state('');
 	let errorMessage = $state('');
-
-	// ============================================================================
-	// execute() — the effect-ts equivalent of elevate-ts's execute()
-	// ============================================================================
-	//
-	// elevate-ts execute(): runs a State monad synchronously, extracts new state.
-	// No way to carry async operations. Errors are silent (no E parameter).
-	//
-	// effect-ts execute(): runs an Effect against the Ref via ManagedRuntime.
-	//   - Can run async Effects (storage, fetch, etc.) transparently
-	//   - TodoNotFound errors are caught and can be shown in the UI
-	//   - saveTodosEffect is composed inside the pipeline — not tacked on after
-	//
-	// The pattern:
-	//   1. Run the domain Effect (mutates the Ref internally)
-	//   2. Read the new state out of the Ref
-	//   3. Persist via saveTodosEffect (which requires TodoStorage — satisfied)
-	//   4. Mirror into appState (Svelte reactive variable)
-	// ============================================================================
 
 	const execute = async (
 		domainEffect: Effect.Effect<unknown, TodoNotFound | StorageError, never>
@@ -84,7 +55,6 @@
 		}
 	};
 
-	/** Handle adding a new todo */
 	const handleAddTodo = () => {
 		const title = inputValue.trim();
 		if (title) {
@@ -93,39 +63,36 @@
 		}
 	};
 
-	/** Handle toggling a todo's done status */
+	const handleKeydown = (e: KeyboardEvent) => {
+		if (e.key === 'Enter') {
+			handleAddTodo();
+		}
+	};
+
 	const handleToggleTodo = (id: number) => {
 		execute(toggleWithHistory(id, stateRef));
 	};
 
-	/** Handle removing a todo */
 	const handleRemoveTodo = (id: number) => {
 		execute(removeWithHistory(id, stateRef));
 	};
 
-	/** Handle clearing completed todos */
 	const handleClearCompleted = () => {
 		execute(clearCompletedWithHistory(stateRef));
 	};
 
-	/** Handle filter change */
 	const handleFilterChange = (filter: 'All' | 'Active' | 'Completed') => {
 		execute(changeFilter(filter, stateRef));
 	};
 
-	/** Handle undo */
 	const handleUndo = () => {
 		execute(undo(stateRef));
 	};
 
-	/** Handle redo */
 	const handleRedo = () => {
 		execute(redo(stateRef));
 	};
 
-	// ============================================================================
-	// Load persisted todos on mount
-	// ============================================================================
 	onMount(async () => {
 		await AppRuntime.runPromise(
 			Effect.gen(function* () {
@@ -141,21 +108,22 @@
 		);
 	});
 
-	// ============================================================================
-	// Reactive derived values (plain Svelte runes)
-	// ============================================================================
 	let filtered = $derived(getFilteredTodos(appState.filter, appState.todos));
 	let counts = $derived(countTodos(appState.todos));
 	let canUndo = $derived(appState.history.length > 0);
 	let canRedo = $derived(appState.future.length > 0);
 </script>
 
-<main>
-	<div class="container">
-		<div class="header">
-			<h1>Effect-TS Todo App</h1>
-			<p class="subtitle">Learning effect-ts with functional programming</p>
-		</div>
+<svelte:head>
+	<title>📝 My Todos - effect-ts Learning App</title>
+</svelte:head>
+
+<div class="page-wrapper">
+	<main>
+		<section class="header">
+			<h1>📝 My Todos</h1>
+			<p>Learning effect-ts with functional programming</p>
+		</section>
 
 		{#if errorMessage}
 			<div class="error-banner">
@@ -163,246 +131,241 @@
 			</div>
 		{/if}
 
-		<div class="input-group">
+		<section class="input-section">
 			<input
 				type="text"
-				placeholder="Add a new todo..."
+				placeholder="Add a new todo... (press Enter)"
 				bind:value={inputValue}
-				onkeydown={(e) => e.key === 'Enter' && handleAddTodo()}
-				aria-label="New todo input"
+				onkeydown={handleKeydown}
+				class="todo-input"
 			/>
-			<button onclick={handleAddTodo} aria-label="Add todo">Add</button>
-		</div>
+			<button onclick={handleAddTodo} class="add-btn">Add</button>
+		</section>
 
-		<div class="stats">
-			<span>Total: {counts.total}</span>
-			<span>Done: {counts.done}</span>
-			<span>Active: {counts.active}</span>
-		</div>
-
-		<div class="controls">
-			<div class="filter-buttons">
-				<button
-					class={appState.filter === 'All' ? 'active' : ''}
-					onclick={() => handleFilterChange('All')}
-					aria-label="Show all todos"
-				>
-					All
-				</button>
-				<button
-					class={appState.filter === 'Active' ? 'active' : ''}
-					onclick={() => handleFilterChange('Active')}
-					aria-label="Show active todos"
-				>
-					Active
-				</button>
-				<button
-					class={appState.filter === 'Completed' ? 'active' : ''}
-					onclick={() => handleFilterChange('Completed')}
-					aria-label="Show completed todos"
-				>
-					Completed
-				</button>
-			</div>
-
-			<div class="action-buttons">
-				<button
-					disabled={!canUndo}
-					onclick={handleUndo}
-					aria-label="Undo last action"
-					title={canUndo ? 'Undo' : 'Nothing to undo'}
-				>
-					↶ Undo
-				</button>
-				<button
-					disabled={!canRedo}
-					onclick={handleRedo}
-					aria-label="Redo last undone action"
-					title={canRedo ? 'Redo' : 'Nothing to redo'}
-				>
-					↷ Redo
-				</button>
-				<button
-					disabled={counts.done === 0}
-					onclick={handleClearCompleted}
-					aria-label="Clear completed todos"
-					title={counts.done > 0 ? `Clear ${counts.done} completed` : 'No completed todos'}
-				>
+		<section class="filters">
+			<button onclick={() => handleFilterChange('All')} class:active={appState.filter === 'All'}>
+				All <span class="count">{counts.total}</span>
+			</button>
+			<button onclick={() => handleFilterChange('Active')} class:active={appState.filter === 'Active'}>
+				Active <span class="count">{counts.active}</span>
+			</button>
+			<button
+				onclick={() => handleFilterChange('Completed')}
+				class:active={appState.filter === 'Completed'}
+			>
+				Done <span class="count">{counts.done}</span>
+			</button>
+			{#if canUndo}
+				<button onclick={handleUndo} class="undo-btn"> ↶ Undo </button>
+			{/if}
+			{#if canRedo}
+				<button onclick={handleRedo} class="redo-btn"> ↷ Redo </button>
+			{/if}
+			{#if counts.done > 0}
+				<button onclick={handleClearCompleted} class="clear-btn">
 					Clear Done
 				</button>
-			</div>
-		</div>
+			{/if}
+		</section>
 
-		{#if filtered.length === 0}
-			<p class="empty-state">
-				{appState.filter === 'All'
-					? 'No todos yet. Add one above!'
-					: `No ${appState.filter.toLowerCase()} todos.`}
-			</p>
-		{:else}
-			<ul class="todo-list">
-				{#each filtered as todo (todo.id)}
-					<li class={todo.done ? 'done' : ''}>
-						<input
-							type="checkbox"
-							checked={todo.done}
-							onchange={() => handleToggleTodo(todo.id)}
-							aria-label={`Mark "${todo.title}" as ${todo.done ? 'incomplete' : 'complete'}`}
-						/>
-						<span>{todo.title}</span>
-						<button
-							class="delete-btn"
-							onclick={() => handleRemoveTodo(todo.id)}
-							aria-label={`Delete "${todo.title}"`}
-						>
-							×
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
+		<section class="todos">
+			{#if filtered.length === 0}
+				<p class="empty-state">
+					{appState.filter === 'All'
+						? 'No todos yet. Add one to get started!'
+						: `No ${appState.filter.toLowerCase()} todos.`}
+				</p>
+			{:else}
+				<ul>
+					{#each filtered as todo (todo.id)}
+						<li class:done={todo.done}>
+							<input
+								type="checkbox"
+								checked={todo.done}
+								onchange={() => handleToggleTodo(todo.id)}
+								aria-label={`Toggle todo: ${todo.title}`}
+							/>
+							<span class="title">{todo.title}</span>
+							<button
+								onclick={() => handleRemoveTodo(todo.id)}
+								class="delete-btn"
+								aria-label={`Delete todo: ${todo.title}`}
+							>
+								✕
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+	</main>
 
-		<footer>
-			<p>&copy; 2026 <a href="https://zambit.com" target="_blank">Zambit Technologies Corp.</a></p>
-			<nav>
-				<a href="#">Acceptable Use</a>
-				<a href="#">Privacy Policy</a>
-				<a href="#">Terms of Service</a>
-			</nav>
-		</footer>
-	</div>
-</main>
+	<footer class="footer">
+		<p>&copy; 2026 <a href="https://zambit.com" target="_blank">Zambit Technologies Corp.</a></p>
+		<nav>
+			<!-- svelte-ignore a11y_invalid_attribute -->
+			<a href="#">Acceptable Use</a>
+			<!-- svelte-ignore a11y_invalid_attribute -->
+			<a href="#">Privacy Policy</a>
+			<!-- svelte-ignore a11y_invalid_attribute -->
+			<a href="#">Terms of Service</a>
+		</nav>
+	</footer>
+</div>
 
 <style>
-	:global(body) {
-		margin: 0;
-		padding: 0;
-		font-family:
-			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		min-height: 100vh;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+	:global(*) {
+		box-sizing: border-box;
 	}
 
-	main {
-		width: 100%;
+	:global(body) {
+		font-family:
+			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+		background: #f4f4f4;
+		min-height: 100vh;
+		margin: 0;
 		padding: 20px;
 	}
 
-	.container {
+	.page-wrapper {
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
 		max-width: 600px;
 		margin: 0 auto;
+	}
+
+	main {
+		flex: 1;
 		background: white;
-		border-radius: 8px;
-		box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-		padding: 40px;
+		border-radius: 12px;
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+		overflow: hidden;
+		margin-bottom: 20px;
 	}
 
 	.header {
+		background: #43464d;
+		color: white;
+		padding: 30px;
 		text-align: center;
-		margin-bottom: 30px;
 	}
 
-	h1 {
-		margin: 0 0 10px 0;
-		color: #333;
+	.header h1 {
+		margin: 0 0 8px 0;
 		font-size: 28px;
+		color: #d6e032;
 	}
 
-	.subtitle {
+	.header p {
 		margin: 0;
-		color: #666;
+		color: #999b07;
 		font-size: 14px;
+		font-weight: 500;
 	}
 
 	.error-banner {
 		background: #fee;
 		color: #c33;
-		padding: 12px;
+		padding: 12px 20px;
+		margin: 12px 20px 0 20px;
 		border-radius: 4px;
-		margin-bottom: 20px;
 		font-size: 14px;
 	}
 
-	.input-group {
+	.input-section {
+		padding: 20px;
+		border-bottom: 1px solid #eee;
 		display: flex;
 		gap: 10px;
-		margin-bottom: 20px;
 	}
 
-	input[type='text'] {
+	.todo-input {
 		flex: 1;
-		padding: 12px;
-		border: 2px solid #ddd;
-		border-radius: 4px;
+		padding: 12px 16px;
+		border: 1px solid #ddd;
+		border-radius: 6px;
 		font-size: 16px;
+		transition: border-color 0.2s;
 	}
 
-	input[type='text']:focus {
+	.todo-input:focus {
 		outline: none;
-		border-color: #667eea;
+		border-color: #d6e032;
 	}
 
-	button {
+	.add-btn {
 		padding: 12px 24px;
-		background: #667eea;
-		color: white;
+		background: #d6e032;
+		color: #43464d;
 		border: none;
-		border-radius: 4px;
-		font-size: 16px;
+		border-radius: 6px;
+		font-weight: 600;
 		cursor: pointer;
 		transition: background 0.2s;
 	}
 
-	button:hover:not(:disabled) {
-		background: #5568d3;
+	.add-btn:hover {
+		background: #c5cf2b;
 	}
 
-	button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+	.add-btn:active {
+		transform: scale(0.98);
 	}
 
-	.stats {
+	.filters {
+		padding: 15px 20px;
+		border-bottom: 1px solid #eee;
 		display: flex;
-		gap: 30px;
-		margin-bottom: 20px;
+		gap: 8px;
+		flex-wrap: wrap;
+		align-items: center;
+	}
+
+	.filters button {
+		padding: 8px 16px;
+		border: 1px solid #ddd;
+		background: white;
+		border-radius: 6px;
+		cursor: pointer;
 		font-size: 14px;
-		color: #666;
-	}
-
-	.controls {
+		transition: all 0.2s;
 		display: flex;
-		flex-direction: column;
-		gap: 15px;
-		margin-bottom: 30px;
+		align-items: center;
+		gap: 6px;
 	}
 
-	.filter-buttons,
-	.action-buttons {
-		display: flex;
-		gap: 10px;
+	.filters button:hover {
+		background: #f9f9f9;
 	}
 
-	.filter-buttons button {
-		flex: 1;
-		background: #f0f0f0;
-		color: #333;
-		padding: 10px 16px;
-		font-size: 14px;
+	.filters button.active {
+		background: #d6e032;
+		color: #43464d;
+		border-color: #d6e032;
 	}
 
-	.filter-buttons button.active {
-		background: #667eea;
+	.filters button.undo-btn {
+		margin-left: auto;
+	}
+
+	.filters button.clear-btn {
+		background: #e74c3c;
 		color: white;
+		border-color: #e74c3c;
 	}
 
-	.action-buttons button {
-		flex: 1;
-		font-size: 14px;
-		padding: 10px 16px;
+	.filters button.clear-btn:hover {
+		background: #c0392b;
+	}
+
+	.count {
+		font-weight: 600;
+		font-size: 12px;
+	}
+
+	.todos {
+		padding: 20px;
 	}
 
 	.empty-state {
@@ -412,76 +375,143 @@
 		font-size: 16px;
 	}
 
-	.todo-list {
+	ul {
 		list-style: none;
+		margin: 0;
 		padding: 0;
-		margin: 0 0 30px 0;
-		border-top: 1px solid #eee;
 	}
 
 	li {
 		display: flex;
 		align-items: center;
-		padding: 15px 0;
-		border-bottom: 1px solid #eee;
+		padding: 12px;
+		border-radius: 6px;
+		transition: background 0.2s;
 		gap: 12px;
 	}
 
-	li.done span {
-		text-decoration: line-through;
-		color: #999;
+	li:hover {
+		background: #f9f9f9;
 	}
 
-	input[type='checkbox'] {
+	li:hover .delete-btn {
+		opacity: 1;
+	}
+
+	li.done .title {
+		text-decoration: line-through;
+		opacity: 0.5;
+	}
+
+	li input[type='checkbox'] {
 		width: 20px;
 		height: 20px;
 		cursor: pointer;
-		accent-color: #667eea;
 	}
 
-	li span {
+	.title {
 		flex: 1;
-		word-break: break-word;
+		font-size: 16px;
 	}
 
 	.delete-btn {
-		background: #f0f0f0;
-		color: #333;
-		padding: 6px 12px;
+		padding: 6px 10px;
+		background: transparent;
+		border: none;
+		color: #ff6b6b;
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity 0.2s;
 		font-size: 18px;
-		min-width: auto;
 	}
 
 	.delete-btn:hover {
-		background: #e0e0e0;
+		color: #e74c3c;
 	}
 
-	footer {
+	.footer {
+		background: #43464d;
+		color: white;
+		padding: 20px;
 		text-align: center;
-		border-top: 1px solid #eee;
-		padding-top: 20px;
-		margin-top: 30px;
-		font-size: 12px;
-		color: #999;
+		border-radius: 12px;
+		margin-top: auto;
 	}
 
-	footer p {
-		margin: 0 0 10px 0;
+	.footer p {
+		margin: 0 0 12px 0;
+		font-size: 14px;
 	}
 
-	footer a {
-		color: #667eea;
+	.footer a {
+		color: #d6e032;
 		text-decoration: none;
-		margin: 0 10px;
+		transition: opacity 0.2s;
 	}
 
-	footer a:hover {
-		text-decoration: underline;
+	.footer a:hover {
+		opacity: 0.8;
 	}
 
-	footer nav {
+	.footer nav {
 		display: flex;
+		gap: 20px;
 		justify-content: center;
-		gap: 0;
+		flex-wrap: wrap;
+	}
+
+	.footer nav a {
+		font-size: 12px;
+	}
+
+	@media (max-width: 600px) {
+		.page-wrapper {
+			max-width: 100%;
+		}
+
+		main {
+			margin: 0;
+			border-radius: 0;
+		}
+
+		.header {
+			padding: 20px;
+		}
+
+		.header h1 {
+			font-size: 24px;
+		}
+
+		.filters {
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.filters button {
+			width: 100%;
+		}
+
+		.filters button.undo-btn,
+		.filters button.clear-btn {
+			margin-left: 0;
+		}
+
+		.input-section {
+			flex-direction: column;
+		}
+
+		.add-btn {
+			width: 100%;
+		}
+
+		.footer {
+			border-radius: 0;
+			margin: 0;
+		}
+
+		.footer nav {
+			flex-direction: column;
+			gap: 10px;
+		}
 	}
 </style>

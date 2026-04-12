@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '../styles/tokens.css';
 	import { onMount } from 'svelte';
-	import { State } from '/Volumes/AWCDrive/git/zambit/elevate-ts/dist/esm/State.js';
 	import {
 		addWithHistory,
 		toggleWithHistory,
@@ -15,51 +14,134 @@
 		undo,
 		redo
 	} from '$lib/domain.js';
+	import { localStorageStorage } from '$lib/storage.js';
 	import type { AppState } from '$lib/types.js';
 
-	let appState = $state<AppState>({
-		todos: [],
-		filter: 'All',
-		history: [],
-		future: []
-	});
+	// ============================================================================
+	// initialize state and storage (no top-level await needed)
+	// ============================================================================
+	//
+	// elevate-ts: const [, todos] = addTodo('...').run([])
+	// effect-ts:  const stateRef = await AppRuntime.runPromise(Ref.make(...))
+	// purify-ts:  let appState = { todos: [], ... } — plain value, no async runtime
+	//
+	// Either is eager — results are computed immediately. No ManagedRuntime
+	// wrapping needed. Just synchronous state threading.
+	// ============================================================================
 
+	let appState = $state<AppState>({ todos: [], filter: 'All', history: [], future: [] });
 	let inputValue = $state('');
+	let errorMessage = $state('');
+	const storage = localStorageStorage;
 
-	onMount(() => {
-		const loaded = loadTodos();
-		appState = {
-			todos: loaded,
-			filter: 'All',
-			history: [],
-			future: []
-		};
-	});
+	// ============================================================================
+	// execute() — runs a domain function and persists the result
+	// ============================================================================
+	//
+	// elevate-ts execute(): runs a State monad synchronously, extracts new state.
+	// No way to carry async operations. Errors are silent (no E parameter).
+	//
+	// effect-ts execute(): runs an Effect against the Ref via ManagedRuntime.
+	//   - Can run async Effects transparently
+	//   - Typed error handling (TodoNotFound, StorageError)
+	//
+	// purify-ts execute(): Takes an Either<TodoError, AppState> (already computed).
+	//   - Either is eager — the computation is done immediately
+	//   - Pattern: run the domain function, extract the result (or error),
+	//     then persist the new state if successful
+	// ============================================================================
 
-	/** Run a domain function and persist state */
-	const execute = (fn: State<AppState, unknown>) => {
-		const [, newState] = fn.run(appState);
-		appState = newState;
-		saveTodos(appState.todos);
+	const execute = async (result: Either<TodoError, AppState>): Promise<void> => {
+		result.caseOf({
+			Right: (newState) => {
+				appState = newState;
+				errorMessage = '';
+				// Persist asynchronously without blocking the UI
+				saveTodos(newState.todos, storage).run();
+			},
+			Left: (error) => {
+				if (error._tag === 'TodoNotFound') {
+					errorMessage = `Todo ${error.id} not found`;
+				} else if (error._tag === 'StorageError') {
+					errorMessage = `Storage error: ${String(error.cause)}`;
+				}
+			}
+		});
 	};
+
+	// Import Either and TodoError type for proper typing
+	// Note: Using type-only import for Either since we're pattern matching
+	// on isRight() / isLeft() at runtime
+	import { Either } from 'purify-ts';
+	import type { TodoError } from '$lib/errors.js';
 
 	/** Handle adding a new todo */
 	const handleAddTodo = () => {
 		const title = inputValue.trim();
 		if (title) {
-			execute(addWithHistory(title));
+			const result = addWithHistory(title, appState);
+			execute(result.map(([, newState]) => newState));
 			inputValue = '';
 		}
 	};
 
-	/** Handle adding on Enter key */
-	const handleKeydown = (e: KeyboardEvent) => {
-		if (e.key === 'Enter') {
-			handleAddTodo();
-		}
+	/** Handle toggling a todo's done status */
+	const handleToggleTodo = (id: number) => {
+		const result = toggleWithHistory(id, appState);
+		execute(result);
 	};
 
-	// Reactive derived values
+	/** Handle removing a todo */
+	const handleRemoveTodo = (id: number) => {
+		const result = removeWithHistory(id, appState);
+		execute(result);
+	};
+
+	/** Handle clearing completed todos */
+	const handleClearCompleted = () => {
+		const result = clearCompletedWithHistory(appState);
+		execute(result);
+	};
+
+	/** Handle filter change */
+	const handleFilterChange = (filter: 'All' | 'Active' | 'Completed') => {
+		appState = changeFilter(filter, appState);
+	};
+
+	/** Handle undo */
+	const handleUndo = () => {
+		appState = undo(appState);
+	};
+
+	/** Handle redo */
+	const handleRedo = () => {
+		appState = redo(appState);
+	};
+
+	// ============================================================================
+	// Load persisted todos on mount
+	// ============================================================================
+	onMount(async () => {
+		const either = await loadTodos(storage).run();
+		either.caseOf({
+			Right: (loadedTodos) => {
+				appState = {
+					todos: loadedTodos,
+					filter: 'All',
+					history: [],
+					future: []
+				};
+			},
+			Left: () => {
+				// Storage error — start fresh
+				appState = { todos: [], filter: 'All', history: [], future: [] };
+			}
+		});
+	});
+
+	// ============================================================================
+	// Reactive derived values (plain Svelte runes)
+	// ============================================================================
 	let filtered = $derived(getFilteredTodos(appState.filter, appState.todos));
 	let counts = $derived(countTodos(appState.todos));
 	let canUndo = $derived(appState.history.length > 0);
@@ -67,53 +149,57 @@
 </script>
 
 <svelte:head>
-	<title>📝 My Todos - elevate-ts Learning App</title>
+	<title>📝 My Todos - purify-ts Learning App</title>
 </svelte:head>
 
 <div class="page-wrapper">
 	<main>
 		<section class="header">
 			<h1>📝 My Todos</h1>
-			<p>Learning elevate-ts with functional programming</p>
+			<p>Learning purify-ts with functional programming</p>
 		</section>
+
+		{#if errorMessage}
+			<div class="error-banner">
+				{errorMessage}
+			</div>
+		{/if}
 
 		<section class="input-section">
 			<input
 				type="text"
 				placeholder="Add a new todo... (press Enter)"
 				bind:value={inputValue}
-				onkeydown={handleKeydown}
+				onkeydown={(e) => e.key === 'Enter' && handleAddTodo()}
 				class="todo-input"
 			/>
 			<button onclick={handleAddTodo} class="add-btn">Add</button>
 		</section>
 
 		<section class="filters">
-			<button onclick={() => execute(changeFilter('All'))} class:active={appState.filter === 'All'}>
+			<button onclick={() => handleFilterChange('All')} class:active={appState.filter === 'All'}>
 				All <span class="count">{counts.total}</span>
 			</button>
 			<button
-				onclick={() => execute(changeFilter('Active'))}
+				onclick={() => handleFilterChange('Active')}
 				class:active={appState.filter === 'Active'}
 			>
 				Active <span class="count">{counts.active}</span>
 			</button>
 			<button
-				onclick={() => execute(changeFilter('Completed'))}
+				onclick={() => handleFilterChange('Completed')}
 				class:active={appState.filter === 'Completed'}
 			>
 				Done <span class="count">{counts.done}</span>
 			</button>
 			{#if canUndo}
-				<button onclick={() => execute(undo())} class="undo-btn"> ↶ Undo </button>
+				<button onclick={handleUndo} class="undo-btn"> ↶ Undo </button>
 			{/if}
 			{#if canRedo}
-				<button onclick={() => execute(redo())} class="redo-btn"> ↷ Redo </button>
+				<button onclick={handleRedo} class="redo-btn"> ↷ Redo </button>
 			{/if}
 			{#if counts.done > 0}
-				<button onclick={() => execute(clearCompletedWithHistory())} class="clear-btn">
-					Clear Done
-				</button>
+				<button onclick={handleClearCompleted} class="clear-btn"> Clear Done </button>
 			{/if}
 		</section>
 
@@ -131,12 +217,12 @@
 							<input
 								type="checkbox"
 								checked={todo.done}
-								onchange={() => execute(toggleWithHistory(todo.id))}
+								onchange={() => handleToggleTodo(todo.id)}
 								aria-label={`Toggle todo: ${todo.title}`}
 							/>
 							<span class="title">{todo.title}</span>
 							<button
-								onclick={() => execute(removeWithHistory(todo.id))}
+								onclick={() => handleRemoveTodo(todo.id)}
 								class="delete-btn"
 								aria-label={`Delete todo: ${todo.title}`}
 							>
@@ -152,8 +238,11 @@
 	<footer class="footer">
 		<p>&copy; 2026 <a href="https://zambit.com" target="_blank">Zambit Technologies Corp.</a></p>
 		<nav>
+			<!-- svelte-ignore a11y_invalid_attribute -->
 			<a href="#">Acceptable Use</a>
+			<!-- svelte-ignore a11y_invalid_attribute -->
 			<a href="#">Privacy Policy</a>
+			<!-- svelte-ignore a11y_invalid_attribute -->
 			<a href="#">Terms of Service</a>
 		</nav>
 	</footer>
@@ -208,6 +297,15 @@
 		color: #999b07;
 		font-size: 14px;
 		font-weight: 500;
+	}
+
+	.error-banner {
+		background: #fee;
+		color: #c33;
+		padding: 12px 20px;
+		margin: 12px 20px 0 20px;
+		border-radius: 4px;
+		font-size: 14px;
 	}
 
 	.input-section {
