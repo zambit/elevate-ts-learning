@@ -23,5 +23,8 @@
     "todo-app"
   ],
   "author": "Zambit",
-  "license": "Dual Licensed"
+  "license": "Dual Licensed",
+  "devDependencies": {
+    "wrangler": "^4.81.1"
+  }
 }
