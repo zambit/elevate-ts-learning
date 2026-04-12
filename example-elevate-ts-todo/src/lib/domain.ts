@@ -1,4 +1,4 @@
-import { State } from '/Volumes/AWCDrive/git/zambit/elevate-ts/dist/esm/State.js';
+import { State } from '@zambit/elevate-ts/State';
 
 import type { Todo, Todos, Filter, AppState } from './types.js';
 
