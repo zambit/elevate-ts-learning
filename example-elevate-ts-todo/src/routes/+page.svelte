@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../styles/tokens.css';
 	import { onMount } from 'svelte';
-	import { State } from '/Volumes/AWCDrive/git/zambit/elevate-ts/dist/esm/State.js';
+	import type { State } from '@zambit/elevate-ts';
 	import {
 		addWithHistory,
 		toggleWithHistory,
