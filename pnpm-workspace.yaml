@@ -3,5 +3,6 @@ packages:
   - '../elevate-ts'
   - 'example-elevate-ts-todo'
   - 'example-effect-ts-todo'
+  - 'example-purify-ts-todo'
 onlyBuiltDependencies:
   - esbuild
