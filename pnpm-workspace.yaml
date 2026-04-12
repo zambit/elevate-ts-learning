@@ -5,3 +5,5 @@ packages:
   - 'example-purify-ts-todo'
 onlyBuiltDependencies:
   - esbuild
+  - sharp
+  - workerd
