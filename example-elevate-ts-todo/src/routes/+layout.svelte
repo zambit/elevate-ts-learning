@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '../styles/tokens.css';
-	import favicon from '$lib/assets/favicon.svg';
+	import favicon from '$lib/assets/favicon.png';
 	import type { AppState, AuditEntry } from '$lib/types.js';
 	import { setContext } from 'svelte';
 
@@ -101,9 +101,9 @@
 </button>
 
 {#if auditEnabled}
-	<div class="audit-badge">
+	<button class="audit-badge" onclick={toggleAudit} title="Click to disable audit">
 		● AUDIT ACTIVE <span class="count">({auditEntryCount})</span>
-	</div>
+	</button>
 {/if}
 
 {#if open}
@@ -232,6 +232,16 @@
 		font-weight: 600;
 		z-index: calc(var(--z-modal) - 1);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		border: none;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+	.audit-badge:hover {
+		background: #c5cf2b;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	}
+	.audit-badge:active {
+		transform: scale(0.95);
 	}
 	.audit-badge .count {
 		font-weight: 500;

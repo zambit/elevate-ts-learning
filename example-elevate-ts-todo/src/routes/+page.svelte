@@ -14,7 +14,7 @@
 		undo,
 		redo
 	} from '$lib/domain.js';
-	import type { AppState, AuditEntry } from '$lib/types.js';
+	import type { AppState, AuditEntry, Todo } from '$lib/types.js';
 
 	interface AuditContext {
 		enabled: boolean;
@@ -41,7 +41,7 @@
 	};
 
 	// Get audit context (safely, for browser only)
-	let audit: AuditContext = defaultAudit;
+	let audit = $state<AuditContext>(defaultAudit);
 	try {
 		audit = getContext<AuditContext>('audit') ?? defaultAudit;
 	} catch {
@@ -130,6 +130,47 @@
 		}
 		return audit.getEntries();
 	});
+
+	// Track expanded audit entries
+	let expandedIds = $state<Set<string>>(new Set());
+	let expandedDebugPanel = $state(false);
+	let expandedTodos = $state<Set<number>>(new Set());
+
+	const toggleExpanded = (id: string): void => {
+		if (expandedIds.has(id)) {
+			expandedIds.delete(id);
+		} else {
+			expandedIds.add(id);
+		}
+		expandedIds = new Set(expandedIds);
+	};
+
+	const toggleDebugPanel = (): void => {
+		expandedDebugPanel = !expandedDebugPanel;
+	};
+
+	const toggleTodoExpanded = (id: number): void => {
+		if (expandedTodos.has(id)) {
+			expandedTodos.delete(id);
+		} else {
+			expandedTodos.add(id);
+		}
+		expandedTodos = new Set(expandedTodos);
+	};
+
+	const getTodoChanges = (before: AppState, after: AppState): { added: Todo[]; removed: Todo[]; toggled: Todo[] } => {
+		const beforeIds = new Set(before.todos.map(t => t.id));
+		const afterIds = new Set(after.todos.map(t => t.id));
+
+		const added = after.todos.filter(t => !beforeIds.has(t.id));
+		const removed = before.todos.filter(t => !afterIds.has(t.id));
+		const toggled = after.todos.filter(t => {
+			const beforeTodo = before.todos.find(bt => bt.id === t.id);
+			return beforeTodo && beforeTodo.done !== t.done;
+		});
+
+		return { added, removed, toggled };
+	};
 </script>
 
 <svelte:head>
@@ -137,12 +178,12 @@
 </svelte:head>
 
 <div class="page-wrapper">
-	<main>
-		<section class="header">
-			<h1>📝 My Todos</h1>
-			<p>Learning elevate-ts with functional programming</p>
-		</section>
+	<section class="header">
+		<h1>📝 My Todos</h1>
+		<p>Learning elevate-ts with functional programming</p>
+	</section>
 
+	<main>
 		<section class="input-section">
 			<input
 				type="text"
@@ -189,7 +230,8 @@
 			{/if}
 		</section>
 
-		<section class="todos">
+		<div class="scrollable-content">
+			<section class="todos">
 			{#if filtered.length === 0}
 				<p class="empty-state">
 					{appState.filter === 'All'
@@ -199,21 +241,43 @@
 			{:else}
 				<ul>
 					{#each filtered as todo (todo.id)}
+						{@const isExpanded = expandedTodos.has(todo.id)}
 						<li class:done={todo.done}>
-							<input
-								type="checkbox"
-								checked={todo.done}
-								onchange={() => execute('toggleWithHistory')(toggleWithHistory(todo.id))}
-								aria-label={`Toggle todo: ${todo.title}`}
-							/>
-							<span class="title">{todo.title}</span>
-							<button
-								onclick={() => execute('removeWithHistory')(removeWithHistory(todo.id))}
-								class="delete-btn"
-								aria-label={`Delete todo: ${todo.title}`}
-							>
-								✕
-							</button>
+							<div class="todo-header">
+								<input
+									type="checkbox"
+									checked={todo.done}
+									onchange={() => execute('toggleWithHistory')(toggleWithHistory(todo.id))}
+									aria-label={`Toggle todo: ${todo.title}`}
+								/>
+								<button
+									class="expand-btn"
+									onclick={() => toggleTodoExpanded(todo.id)}
+									aria-label={`Expand todo: ${todo.title}`}
+								>
+									<span class="expand-toggle">{isExpanded ? '▼' : '▶'}</span>
+								</button>
+								<span class="title">{todo.title}</span>
+								<button
+									onclick={() => execute('removeWithHistory')(removeWithHistory(todo.id))}
+									class="delete-btn"
+									aria-label={`Delete todo: ${todo.title}`}
+								>
+									✕
+								</button>
+							</div>
+							{#if isExpanded}
+								<div class="todo-details">
+									<div class="detail-item">
+										<strong>ID:</strong>
+										<code>{todo.id}</code>
+									</div>
+									<div class="detail-item">
+										<strong>Status:</strong>
+										<span>{todo.done ? '✓ Completed' : '○ Active'}</span>
+									</div>
+								</div>
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -230,20 +294,103 @@
 						{#each auditEntries as entry (entry.id)}
 							{@const input = entry.input as AppState}
 							{@const output = entry.output as AppState}
+							{@const changes = getTodoChanges(input, output)}
+							{@const isExpanded = expandedIds.has(entry.id)}
 							<div class="audit-entry">
-								<div class="op-header">
+								<button class="entry-header" onclick={() => toggleExpanded(entry.id)}>
+									<span class="expand-toggle">{isExpanded ? '▼' : '▶'}</span>
 									<span class="op-name">{entry.operation}</span>
 									<span class="timestamp">{new Date(entry.timestamp).toLocaleTimeString()}</span>
-								</div>
-								<div class="state-diff">
-									<div class="state-before">
-										Todos: {input.todos.length} | History: {input.history.length}
+									<span class="compact-diff">
+										Todos: {input.todos.length} → {output.todos.length}
+									</span>
+								</button>
+
+								{#if isExpanded}
+									<div class="entry-details">
+										<div class="detail-section">
+											<h4>Operation ID</h4>
+											<code>{entry.id}</code>
+										</div>
+
+										<div class="detail-section">
+											<h4>Monad Type</h4>
+											<code>{entry.monadType}</code>
+										</div>
+
+										<div class="detail-section">
+											<h4>Before State</h4>
+											<div class="state-box">
+												<p><strong>Todos:</strong> {input.todos.length}</p>
+												<p><strong>Filter:</strong> {input.filter}</p>
+												<p><strong>History Depth:</strong> {input.history.length}</p>
+												<p><strong>Future Depth:</strong> {input.future.length}</p>
+												{#if input.todos.length > 0}
+													<p><strong>Todo List:</strong></p>
+													<ul class="todo-list">
+														{#each input.todos as todo}
+															<li>{todo.done ? '✓' : '○'} {todo.title}</li>
+														{/each}
+													</ul>
+												{/if}
+											</div>
+										</div>
+
+										<div class="detail-section">
+											<h4>After State</h4>
+											<div class="state-box">
+												<p><strong>Todos:</strong> {output.todos.length}</p>
+												<p><strong>Filter:</strong> {output.filter}</p>
+												<p><strong>History Depth:</strong> {output.history.length}</p>
+												<p><strong>Future Depth:</strong> {output.future.length}</p>
+												{#if output.todos.length > 0}
+													<p><strong>Todo List:</strong></p>
+													<ul class="todo-list">
+														{#each output.todos as todo}
+															<li>{todo.done ? '✓' : '○'} {todo.title}</li>
+														{/each}
+													</ul>
+												{/if}
+											</div>
+										</div>
+
+										{#if changes.added.length > 0 || changes.removed.length > 0 || changes.toggled.length > 0}
+											<div class="detail-section">
+												<h4>Changes</h4>
+												{#if changes.added.length > 0}
+													<div class="change-group added">
+														<strong>Added:</strong>
+														<ul class="change-list">
+															{#each changes.added as todo}
+																<li>+ {todo.title}</li>
+															{/each}
+														</ul>
+													</div>
+												{/if}
+												{#if changes.toggled.length > 0}
+													<div class="change-group toggled">
+														<strong>Toggled:</strong>
+														<ul class="change-list">
+															{#each changes.toggled as todo}
+																<li>~ {todo.title} ({todo.done ? 'done' : 'active'})</li>
+															{/each}
+														</ul>
+													</div>
+												{/if}
+												{#if changes.removed.length > 0}
+													<div class="change-group removed">
+														<strong>Removed:</strong>
+														<ul class="change-list">
+															{#each changes.removed as todo}
+																<li>- {todo.title}</li>
+															{/each}
+														</ul>
+													</div>
+												{/if}
+											</div>
+										{/if}
 									</div>
-									<div class="arrow">→</div>
-									<div class="state-after">
-										Todos: {output.todos.length} | History: {output.history.length}
-									</div>
-								</div>
+								{/if}
 							</div>
 						{/each}
 					</div>
@@ -251,48 +398,54 @@
 				{/if}
 			</section>
 		{/if}
+		</div>
 	</main>
 
 		{#if audit.enabled && audit.debugEnabled}
 			<section class="debug-panel">
-				<h2>Debug Info</h2>
-				<div class="debug-content">
-					<div class="debug-section">
-						<h3>Audit Status</h3>
-						<p><strong>Total Entries:</strong> {allAuditEntries.length}</p>
-						<p><strong>Displayed:</strong> {auditEntries.length} (newest first, capped at 50)</p>
-						<p><strong>Update Trigger:</strong> {audit.updateTrigger}</p>
-					</div>
+				<button class="debug-header" onclick={toggleDebugPanel}>
+					<span class="expand-toggle">{expandedDebugPanel ? '▼' : '▶'}</span>
+					<h2>Debug Info</h2>
+				</button>
+				{#if expandedDebugPanel}
+					<div class="debug-content">
+						<div class="debug-section">
+							<h3>Audit Status</h3>
+							<p><strong>Total Entries:</strong> {allAuditEntries.length}</p>
+							<p><strong>Displayed:</strong> {auditEntries.length} (newest first, capped at 50)</p>
+							<p><strong>Update Trigger:</strong> {audit.updateTrigger}</p>
+						</div>
 
-					<div class="debug-section">
-						<h3>Current App State</h3>
-						<p><strong>Todos:</strong> {appState.todos.length}</p>
-						<p><strong>Filter:</strong> {appState.filter}</p>
-						<p><strong>History Depth:</strong> {appState.history.length}</p>
-						<p><strong>Future Depth:</strong> {appState.future.length}</p>
-					</div>
+						<div class="debug-section">
+							<h3>Current App State</h3>
+							<p><strong>Todos:</strong> {appState.todos.length}</p>
+							<p><strong>Filter:</strong> {appState.filter}</p>
+							<p><strong>History Depth:</strong> {appState.history.length}</p>
+							<p><strong>Future Depth:</strong> {appState.future.length}</p>
+						</div>
 
-					<div class="debug-section">
-						<h3>Latest Operation</h3>
-						{#if allAuditEntries.length > 0}
-							{@const latest = allAuditEntries[allAuditEntries.length - 1]}
-							<p><strong>Operation:</strong> {latest.operation}</p>
-							<p><strong>Time:</strong> {new Date(latest.timestamp).toLocaleTimeString()}</p>
-							<p><strong>Monad Type:</strong> {latest.monadType}</p>
-						{:else}
-							<p style="color: var(--color-neutral-400);">No operations yet</p>
-						{/if}
+						<div class="debug-section">
+							<h3>Latest Operation</h3>
+							{#if allAuditEntries.length > 0}
+								{@const latest = allAuditEntries[allAuditEntries.length - 1]}
+								<p><strong>Operation:</strong> {latest.operation}</p>
+								<p><strong>Time:</strong> {new Date(latest.timestamp).toLocaleTimeString()}</p>
+								<p><strong>Monad Type:</strong> {latest.monadType}</p>
+							{:else}
+								<p style="color: var(--color-neutral-400);">No operations yet</p>
+							{/if}
+						</div>
 					</div>
-				</div>
+				{/if}
 			</section>
 		{/if}
 
 	<footer class="footer">
 		<p>&copy; 2026 <a href="https://zambit.com" target="_blank">Zambit Technologies Corp.</a></p>
 		<nav>
-			<a href="#">Acceptable Use</a>
-			<a href="#">Privacy Policy</a>
-			<a href="#">Terms of Service</a>
+			<a href="/acceptable-use">Acceptable Use</a>
+			<a href="/privacy-policy">Privacy Policy</a>
+			<a href="/terms-of-service">Terms of Service</a>
 		</nav>
 	</footer>
 </div>
@@ -314,18 +467,31 @@
 	.page-wrapper {
 		display: flex;
 		flex-direction: column;
-		min-height: 100vh;
+		height: 100vh;
 		max-width: 600px;
 		margin: 0 auto;
+		padding: 20px;
+		box-sizing: border-box;
+		gap: 0;
+		overflow: hidden;
 	}
 
 	main {
 		flex: 1;
 		background: white;
-		border-radius: 12px;
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-		overflow: hidden;
-		margin-bottom: 20px;
+		border-radius: 0;
+		box-shadow: none;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	.scrollable-content {
+		flex: 1;
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
 	}
 
 	.header {
@@ -333,6 +499,8 @@
 		color: white;
 		padding: 30px;
 		text-align: center;
+		border-radius: 12px 12px 0 0;
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 	}
 
 	.header h1 {
@@ -458,11 +626,11 @@
 
 	li {
 		display: flex;
-		align-items: center;
+		flex-direction: column;
+		gap: 0;
 		padding: 12px;
 		border-radius: 6px;
 		transition: background 0.2s;
-		gap: 12px;
 	}
 
 	li:hover {
@@ -509,8 +677,9 @@
 		color: white;
 		padding: 20px;
 		text-align: center;
-		border-radius: 12px;
-		margin-top: auto;
+		border-radius: 0 0 12px 12px;
+		flex-shrink: 0;
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 	}
 
 	.footer p {
@@ -632,11 +801,28 @@
 		border-bottom: none;
 	}
 
-	.op-header {
+	.entry-header {
+		width: 100%;
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
-		margin-bottom: var(--spacing-2);
+		gap: var(--spacing-3);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		text-align: left;
+		font-family: inherit;
+		font-size: inherit;
+	}
+
+	.entry-header:hover {
+		opacity: 0.8;
+	}
+
+	.expand-toggle {
+		color: var(--color-neutral-400);
+		font-size: var(--font-size-sm);
+		min-width: 1rem;
 	}
 
 	.op-name {
@@ -646,36 +832,118 @@
 		background: var(--color-neutral-100);
 		padding: var(--spacing-1) var(--spacing-2);
 		border-radius: var(--radius-sm);
+		flex-shrink: 0;
 	}
 
 	.timestamp {
 		font-size: var(--font-size-xs);
 		color: var(--color-neutral-400);
 		font-family: var(--font-mono);
+		margin-left: auto;
 	}
 
-	.state-diff {
-		display: grid;
-		grid-template-columns: 1fr auto 1fr;
-		gap: var(--spacing-2);
-		align-items: center;
-		margin-top: var(--spacing-2);
-	}
-
-	.state-before,
-	.state-after {
-		font-family: var(--font-mono);
+	.compact-diff {
 		font-size: var(--font-size-xs);
 		color: var(--color-neutral-600);
+		font-family: var(--font-mono);
+	}
+
+	.entry-details {
+		margin-top: var(--spacing-3);
+		padding: var(--spacing-3);
+		background: var(--color-neutral-50);
+		border-radius: var(--radius-sm);
+		border-left: 3px solid var(--color-brand);
+	}
+
+	.detail-section {
+		margin-bottom: var(--spacing-3);
+	}
+
+	.detail-section:last-child {
+		margin-bottom: 0;
+	}
+
+	.detail-section h4 {
+		margin: 0 0 var(--spacing-2) 0;
+		color: var(--color-neutral-700);
+		font-size: var(--font-size-sm);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.detail-section code {
+		font-family: var(--font-mono);
+		background: var(--color-neutral-200);
+		padding: var(--spacing-1) var(--spacing-2);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-xs);
+		display: block;
+		word-break: break-all;
+	}
+
+	.state-box {
+		background: white;
 		padding: var(--spacing-2);
-		background: var(--color-neutral-100);
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-neutral-200);
+		font-size: var(--font-size-xs);
+		font-family: var(--font-mono);
+	}
+
+	.state-box p {
+		margin: var(--spacing-1) 0;
+		color: var(--color-neutral-700);
+	}
+
+	.state-box .todo-list {
+		margin: var(--spacing-2) 0 0 var(--spacing-3);
+		padding: 0;
+		list-style: none;
+		font-size: var(--font-size-xs);
+	}
+
+	.state-box .todo-list li {
+		margin: var(--spacing-1) 0;
+		color: var(--color-neutral-600);
+	}
+
+	.change-group {
+		margin: var(--spacing-2) 0;
+		padding: var(--spacing-2);
 		border-radius: var(--radius-sm);
 	}
 
-	.arrow {
-		text-align: center;
-		color: #d6e032;
-		font-weight: var(--font-weight-semibold);
+	.change-group.added {
+		background: #f0fdf4;
+		border: 1px solid #bbf7d0;
+	}
+
+	.change-group.toggled {
+		background: #fef3c7;
+		border: 1px solid #fcd34d;
+	}
+
+	.change-group.removed {
+		background: #fee2e2;
+		border: 1px solid #fca5a5;
+	}
+
+	.change-group strong {
+		display: block;
+		margin-bottom: var(--spacing-1);
+		font-size: var(--font-size-xs);
+	}
+
+	.change-list {
+		margin: 0;
+		padding: 0 0 0 var(--spacing-3);
+		list-style: none;
+		font-size: var(--font-size-xs);
+	}
+
+	.change-list li {
+		margin: var(--spacing-1) 0;
 	}
 
 	.clear-audit-btn {
@@ -745,5 +1013,85 @@
 	.debug-section strong {
 		color: var(--color-neutral-900);
 		font-weight: var(--font-weight-semibold);
+	}
+
+	.debug-header {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		text-align: left;
+		font-family: inherit;
+		font-size: inherit;
+		margin: 0 0 var(--spacing-4) 0;
+	}
+
+	.debug-header:hover {
+		opacity: 0.8;
+	}
+
+	.debug-header h2 {
+		margin: 0;
+	}
+
+	.todo-header {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		width: 100%;
+	}
+
+	.expand-btn {
+		padding: 4px 8px;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: var(--font-size-sm);
+		color: var(--color-neutral-500);
+		transition: color var(--transition-fast);
+	}
+
+	.expand-btn:hover {
+		color: var(--color-neutral-700);
+	}
+
+	.todo-details {
+		margin-top: var(--spacing-3);
+		padding: var(--spacing-3);
+		background: var(--color-neutral-50);
+		border-radius: var(--radius-sm);
+		border-left: 3px solid var(--color-brand);
+		font-size: var(--font-size-xs);
+	}
+
+	.detail-item {
+		margin-bottom: var(--spacing-2);
+		display: flex;
+		gap: var(--spacing-2);
+		align-items: flex-start;
+	}
+
+	.detail-item:last-child {
+		margin-bottom: 0;
+	}
+
+	.detail-item strong {
+		color: var(--color-neutral-700);
+		flex-shrink: 0;
+	}
+
+	.detail-item code {
+		font-family: var(--font-mono);
+		background: var(--color-neutral-200);
+		padding: var(--spacing-1) var(--spacing-2);
+		border-radius: var(--radius-sm);
+		word-break: break-all;
 	}
 </style>
