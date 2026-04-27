@@ -18,3 +18,13 @@ export interface AppState {
 	readonly history: readonly Todos[];
 	readonly future: readonly Todos[];
 }
+
+/** Audit log entry */
+export interface AuditEntry {
+	readonly operation: string;
+	readonly input: unknown;
+	readonly output: unknown;
+	readonly timestamp: number;
+	readonly id: string;
+	readonly monadType: string;
+}

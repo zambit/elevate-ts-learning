@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '../styles/tokens.css';
-	import { onMount } from 'svelte';
-	import type { State } from '@zambit/elevate-ts';
+	import { getContext, onMount } from 'svelte';
 	import {
 		addWithHistory,
 		toggleWithHistory,
@@ -15,7 +14,40 @@
 		undo,
 		redo
 	} from '$lib/domain.js';
-	import type { AppState } from '$lib/types.js';
+	import type { AppState, AuditEntry } from '$lib/types.js';
+
+	interface AuditContext {
+		enabled: boolean;
+		debugEnabled: boolean;
+		record: (op: string, before: AppState, after: AppState) => void;
+		reset: () => void;
+		getEntryCount: () => number;
+		getEntries: () => AuditEntry[];
+		updateTrigger: number;
+	}
+
+	type StateMonad = { run(state: AppState): readonly [unknown, AppState] };
+
+
+	// Default no-op audit context for SSR
+	const defaultAudit: AuditContext = {
+		enabled: false,
+		debugEnabled: false,
+		record: () => {},
+		reset: () => {},
+		getEntryCount: () => 0,
+		getEntries: (): AuditEntry[] => [],
+		updateTrigger: 0
+	};
+
+	// Get audit context (safely, for browser only)
+	let audit: AuditContext = defaultAudit;
+	try {
+		audit = getContext<AuditContext>('audit') ?? defaultAudit;
+	} catch {
+		// Context not available during SSR
+		audit = defaultAudit;
+	}
 
 	let appState = $state<AppState>({
 		todos: [],
@@ -36,10 +68,14 @@
 		};
 	});
 
-	/** Run a domain function and persist state */
-	const execute = (fn: State<AppState, unknown>) => {
+	/** Run a domain function and persist state, optionally recording to audit */
+	const execute = (opName: string) => (fn: StateMonad) => {
+		const before = appState;
 		const [, newState] = fn.run(appState);
 		appState = newState;
+		if (audit.enabled) {
+			audit.record(opName, before, newState);
+		}
 		saveTodos(appState.todos);
 	};
 
@@ -47,7 +83,7 @@
 	const handleAddTodo = () => {
 		const title = inputValue.trim();
 		if (title) {
-			execute(addWithHistory(title));
+			execute('addWithHistory')(addWithHistory(title));
 			inputValue = '';
 		}
 	};
@@ -64,6 +100,36 @@
 	let counts = $derived(countTodos(appState.todos));
 	let canUndo = $derived(appState.history.length > 0);
 	let canRedo = $derived(appState.future.length > 0);
+
+	// Track update trigger separately to ensure reactivity
+	let triggerVersion = $state(0);
+	$effect(() => {
+		const newTrigger = audit.updateTrigger;
+		if (newTrigger !== triggerVersion) {
+			if (audit.debugEnabled) {
+				console.log(`[Page] Trigger changed from ${triggerVersion} to ${newTrigger}`);
+			}
+			triggerVersion = newTrigger;
+		}
+	});
+
+	// Audit entries in newest-first order, capped at 50
+	let auditEntries = $derived.by(() => {
+		triggerVersion; // Access to track dependency
+		if (!audit || !audit.enabled) {
+			return [];
+		}
+		return audit.getEntries().slice(-50).reverse();
+	});
+
+	// All audit entries (for debug view)
+	let allAuditEntries = $derived.by(() => {
+		triggerVersion; // Access to track dependency
+		if (!audit || !audit.enabled) {
+			return [];
+		}
+		return audit.getEntries();
+	});
 </script>
 
 <svelte:head>
@@ -89,29 +155,35 @@
 		</section>
 
 		<section class="filters">
-			<button onclick={() => execute(changeFilter('All'))} class:active={appState.filter === 'All'}>
+			<button
+				onclick={() => execute('changeFilter')(changeFilter('All'))}
+				class:active={appState.filter === 'All'}
+			>
 				All <span class="count">{counts.total}</span>
 			</button>
 			<button
-				onclick={() => execute(changeFilter('Active'))}
+				onclick={() => execute('changeFilter')(changeFilter('Active'))}
 				class:active={appState.filter === 'Active'}
 			>
 				Active <span class="count">{counts.active}</span>
 			</button>
 			<button
-				onclick={() => execute(changeFilter('Completed'))}
+				onclick={() => execute('changeFilter')(changeFilter('Completed'))}
 				class:active={appState.filter === 'Completed'}
 			>
 				Done <span class="count">{counts.done}</span>
 			</button>
 			{#if canUndo}
-				<button onclick={() => execute(undo())} class="undo-btn"> ↶ Undo </button>
+				<button onclick={() => execute('undo')(undo())} class="undo-btn"> ↶ Undo </button>
 			{/if}
 			{#if canRedo}
-				<button onclick={() => execute(redo())} class="redo-btn"> ↷ Redo </button>
+				<button onclick={() => execute('redo')(redo())} class="redo-btn"> ↷ Redo </button>
 			{/if}
 			{#if counts.done > 0}
-				<button onclick={() => execute(clearCompletedWithHistory())} class="clear-btn">
+				<button
+					onclick={() => execute('clearCompletedWithHistory')(clearCompletedWithHistory())}
+					class="clear-btn"
+				>
 					Clear Done
 				</button>
 			{/if}
@@ -131,12 +203,12 @@
 							<input
 								type="checkbox"
 								checked={todo.done}
-								onchange={() => execute(toggleWithHistory(todo.id))}
+								onchange={() => execute('toggleWithHistory')(toggleWithHistory(todo.id))}
 								aria-label={`Toggle todo: ${todo.title}`}
 							/>
 							<span class="title">{todo.title}</span>
 							<button
-								onclick={() => execute(removeWithHistory(todo.id))}
+								onclick={() => execute('removeWithHistory')(removeWithHistory(todo.id))}
 								class="delete-btn"
 								aria-label={`Delete todo: ${todo.title}`}
 							>
@@ -147,7 +219,73 @@
 				</ul>
 			{/if}
 		</section>
+
+		{#if audit.enabled}
+			<section class="audit-panel">
+				<h2>Audit Log</h2>
+				{#if auditEntries.length === 0}
+					<p class="audit-empty">No operations recorded yet.</p>
+				{:else}
+					<div class="audit-entries">
+						{#each auditEntries as entry (entry.id)}
+							{@const input = entry.input as AppState}
+							{@const output = entry.output as AppState}
+							<div class="audit-entry">
+								<div class="op-header">
+									<span class="op-name">{entry.operation}</span>
+									<span class="timestamp">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+								</div>
+								<div class="state-diff">
+									<div class="state-before">
+										Todos: {input.todos.length} | History: {input.history.length}
+									</div>
+									<div class="arrow">→</div>
+									<div class="state-after">
+										Todos: {output.todos.length} | History: {output.history.length}
+									</div>
+								</div>
+							</div>
+						{/each}
+					</div>
+					<button class="clear-audit-btn" onclick={() => audit.reset()}>Clear Log</button>
+				{/if}
+			</section>
+		{/if}
 	</main>
+
+		{#if audit.enabled && audit.debugEnabled}
+			<section class="debug-panel">
+				<h2>Debug Info</h2>
+				<div class="debug-content">
+					<div class="debug-section">
+						<h3>Audit Status</h3>
+						<p><strong>Total Entries:</strong> {allAuditEntries.length}</p>
+						<p><strong>Displayed:</strong> {auditEntries.length} (newest first, capped at 50)</p>
+						<p><strong>Update Trigger:</strong> {audit.updateTrigger}</p>
+					</div>
+
+					<div class="debug-section">
+						<h3>Current App State</h3>
+						<p><strong>Todos:</strong> {appState.todos.length}</p>
+						<p><strong>Filter:</strong> {appState.filter}</p>
+						<p><strong>History Depth:</strong> {appState.history.length}</p>
+						<p><strong>Future Depth:</strong> {appState.future.length}</p>
+					</div>
+
+					<div class="debug-section">
+						<h3>Latest Operation</h3>
+						{#if allAuditEntries.length > 0}
+							{@const latest = allAuditEntries[allAuditEntries.length - 1]}
+							<p><strong>Operation:</strong> {latest.operation}</p>
+							<p><strong>Time:</strong> {new Date(latest.timestamp).toLocaleTimeString()}</p>
+							<p><strong>Monad Type:</strong> {latest.monadType}</p>
+						{:else}
+							<p style="color: var(--color-neutral-400);">No operations yet</p>
+						{/if}
+					</div>
+				</div>
+			</section>
+		{/if}
 
 	<footer class="footer">
 		<p>&copy; 2026 <a href="https://zambit.com" target="_blank">Zambit Technologies Corp.</a></p>
@@ -450,5 +588,162 @@
 			flex-direction: column;
 			gap: 10px;
 		}
+	}
+
+	.audit-panel {
+		padding: var(--spacing-5);
+		background: var(--color-neutral-50);
+		border-top: 2px solid #d6e032;
+		margin-top: var(--spacing-5);
+	}
+
+	.audit-panel h2 {
+		margin: 0 0 var(--spacing-4);
+		font-size: var(--font-size-lg);
+		color: var(--color-neutral-900);
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.audit-empty {
+		text-align: center;
+		color: var(--color-neutral-400);
+		padding: var(--spacing-5);
+		font-size: var(--font-size-sm);
+	}
+
+	.audit-entries {
+		max-height: 300px;
+		overflow-y: auto;
+		margin-bottom: var(--spacing-3);
+		border: 1px solid var(--color-neutral-200);
+		border-radius: var(--radius-lg);
+		background: white;
+	}
+
+	.audit-entry {
+		padding: var(--spacing-3);
+		border-bottom: 1px solid var(--color-neutral-100);
+		font-size: var(--font-size-xs);
+	}
+
+	.audit-entry:last-child {
+		border-bottom: none;
+	}
+
+	.op-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: var(--spacing-2);
+	}
+
+	.op-name {
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-neutral-900);
+		font-family: var(--font-mono);
+		background: var(--color-neutral-100);
+		padding: var(--spacing-1) var(--spacing-2);
+		border-radius: var(--radius-sm);
+	}
+
+	.timestamp {
+		font-size: var(--font-size-xs);
+		color: var(--color-neutral-400);
+		font-family: var(--font-mono);
+	}
+
+	.state-diff {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		gap: var(--spacing-2);
+		align-items: center;
+		margin-top: var(--spacing-2);
+	}
+
+	.state-before,
+	.state-after {
+		font-family: var(--font-mono);
+		font-size: var(--font-size-xs);
+		color: var(--color-neutral-600);
+		padding: var(--spacing-2);
+		background: var(--color-neutral-100);
+		border-radius: var(--radius-sm);
+	}
+
+	.arrow {
+		text-align: center;
+		color: #d6e032;
+		font-weight: var(--font-weight-semibold);
+	}
+
+	.clear-audit-btn {
+		width: 100%;
+		padding: var(--spacing-3);
+		background: var(--color-error-dark);
+		color: white;
+		border: none;
+		border-radius: var(--radius-lg);
+		font-weight: var(--font-weight-semibold);
+		cursor: pointer;
+		font-size: var(--font-size-sm);
+		transition: background var(--transition-fast);
+	}
+
+	.clear-audit-btn:hover {
+		background: var(--color-error);
+		opacity: 0.9;
+	}
+
+	.clear-audit-btn:active {
+		transform: scale(0.98);
+	}
+
+	.debug-panel {
+		padding: var(--spacing-5);
+		background: var(--color-brand-light);
+		border-top: 2px solid var(--color-brand);
+		margin-top: var(--spacing-5);
+	}
+
+	.debug-panel h2 {
+		margin: 0 0 var(--spacing-4);
+		font-size: var(--font-size-lg);
+		color: var(--color-neutral-900);
+	}
+
+	.debug-content {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: var(--spacing-4);
+	}
+
+	.debug-section {
+		background: white;
+		padding: var(--spacing-3);
+		border-radius: var(--radius-lg);
+		border: 1px solid var(--color-brand-light);
+	}
+
+	.debug-section h3 {
+		margin: 0 0 var(--spacing-2);
+		font-size: var(--font-size-sm);
+		color: var(--color-brand);
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.debug-section p {
+		margin: var(--spacing-2) 0;
+		font-size: var(--font-size-xs);
+		color: var(--color-neutral-600);
+		font-family: var(--font-mono);
+	}
+
+	.debug-section strong {
+		color: var(--color-neutral-900);
+		font-weight: var(--font-weight-semibold);
 	}
 </style>
