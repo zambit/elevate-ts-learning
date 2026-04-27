@@ -4,7 +4,7 @@
 	"version": "0.0.1",
 	"type": "module",
 	"dependencies": {
-		"@zambit/elevate-ts": "^0.1.2"
+		"@zambit/elevate-ts": "^0.4.2"
 	},
 	"scripts": {
 		"dev": "vite dev",
@@ -16,7 +16,8 @@
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"test:unit": "vitest",
-		"test": "npm run test:unit -- --run"
+		"test": "npm run test:unit -- --run",
+		"demo": "tsx src/lib/audit-examples/run-demos.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.3",
@@ -33,6 +34,7 @@
 		"prettier-plugin-svelte": "^3.4.1",
 		"svelte": "^5.54.0",
 		"svelte-check": "^4.4.2",
+		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.57.0",
 		"vite": "^7.3.1",

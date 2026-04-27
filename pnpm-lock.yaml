@@ -82,8 +82,8 @@ importers:
   example-elevate-ts-todo:
     dependencies:
       '@zambit/elevate-ts':
-        specifier: ^0.1.2
-        version: 0.1.2
+        specifier: ^0.4.2
+        version: 0.4.2
     devDependencies:
       '@eslint/compat':
         specifier: ^2.0.3
@@ -127,6 +127,9 @@ importers:
       svelte-check:
         specifier: ^4.4.2
         version: 4.4.6(picomatch@4.0.4)(svelte@5.55.2)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1187,8 +1190,8 @@ packages:
   '@vitest/utils@4.1.4':
     resolution: {integrity: sha512-13QMT+eysM5uVGa1rG4kegGYNp6cnQcsTc67ELFbhNLQO+vgsygtYJx2khvdt4gVQqSSpC/KT5FZZxUpP3Oatw==}
 
-  '@zambit/elevate-ts@0.1.2':
-    resolution: {integrity: sha512-NajoKw2CYxTtN9vCMtI/EWVcrGE83lbdHIzw1T5tI/rXouhmb089GQqjXUZRWn9rWCPeu/tPTXRdekOyRkg2bQ==}
+  '@zambit/elevate-ts@0.4.2':
+    resolution: {integrity: sha512-uDmy3KLdTu2J8UpjGuFKidhSNBy+lfme0TOHr0Omcy19FHZ19Rmrl6BD+862gm/VKOpzs0rIzY+g7IX39ETSbA==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2974,7 +2977,7 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@zambit/elevate-ts@0.1.2': {}
+  '@zambit/elevate-ts@0.4.2': {}
 
   acorn-jsx@5.3.2(acorn@8.16.0):
     dependencies:
@@ -3356,7 +3359,6 @@ snapshots:
   get-tsconfig@4.13.7:
     dependencies:
       resolve-pkg-maps: 1.0.0
-    optional: true
 
   glob-parent@6.0.2:
     dependencies:
@@ -3703,8 +3705,7 @@ snapshots:
   requires-port@1.0.0:
     optional: true
 
-  resolve-pkg-maps@1.0.0:
-    optional: true
+  resolve-pkg-maps@1.0.0: {}
 
   rollup@4.60.1:
     dependencies:
@@ -3901,7 +3902,6 @@ snapshots:
       get-tsconfig: 4.13.7
     optionalDependencies:
       fsevents: 2.3.3
-    optional: true
 
   type-check@0.4.0:
     dependencies:
