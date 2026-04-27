@@ -13,7 +13,8 @@
     "build": "pnpm -C example-elevate-ts-todo build",
     "preview": "pnpm -C example-elevate-ts-todo preview",
     "test": "pnpm -C example-elevate-ts-todo test",
-    "test:watch": "pnpm -C example-elevate-ts-todo test:watch"
+    "test:watch": "pnpm -C example-elevate-ts-todo test:watch",
+    "demo": "pnpm -C example-elevate-ts-todo demo"
   },
   "keywords": [
     "elevate-ts",
