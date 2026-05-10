@@ -25,6 +25,7 @@
   ],
   "author": "Zambit",
   "license": "Dual Licensed",
+  "packageManager": "pnpm@10.33.2",
   "devDependencies": {
     "wrangler": "^4.81.1"
   }
