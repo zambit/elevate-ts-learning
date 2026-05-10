@@ -4,7 +4,7 @@
 	"version": "0.0.1",
 	"type": "module",
 	"dependencies": {
-		"@zambit/elevate-ts": "^0.4.2"
+		"@zambit/elevate-ts": "^0.5.0"
 	},
 	"scripts": {
 		"dev": "vite dev",
