@@ -1,3 +1,5 @@
+import * as Either from '@zambit/elevate-ts/Either';
+import * as ReaderEitherAsync from '@zambit/elevate-ts/ReaderEitherAsync';
 import { State } from '@zambit/elevate-ts/State';
 
 import type { Todo, Todos, Filter, AppState } from './types.js';
@@ -426,57 +428,81 @@ export const redo = (): State<AppState, void> =>
 	});
 
 // ============================================================================
-// Persistence (side effects, but predictable)
+// Persistence (ReaderEitherAsync over an injected Storage)
 // ============================================================================
 //
-// These are NOT State monad operations because they perform side effects
-// (reading/writing to localStorage). They're kept separate so the rest
-// of the code stays pure and testable.
+// The persistence layer is modeled as ReaderEitherAsync<StorageEnv, StorageError, A>:
 //
-// Use these at the UI boundary to save/load state.
+//   - R = StorageEnv: the storage backend, injected by callers (real localStorage
+//     in the browser, a fake in tests, possibly KV or IDB later).
+//   - L = StorageError: a tagged union of recoverable failures (read/write/parse).
+//   - A = the success value (Todos for load, void for save).
 //
+// Run them with ReaderEitherAsync.runReaderEitherAsync(env)(rea), which yields
+// Promise<Either<StorageError, A>> for pattern-matching at the call site.
+//
+// See docs/READER_EITHER_ASYNC.md for the full rationale, comparisons to
+// simpler types, and gotchas.
 // ============================================================================
 
 const STORAGE_KEY = 'elevate-ts-todos';
 
-/**
- * Save todos to browser localStorage.
- *
- * This performs a side effect (writing to the browser's storage).
- * Call this after mutations to persist changes across page refreshes.
- *
- * @param todos - The todo list to save
- *
- * @example
- *   const [_, newState] = addWithHistory('New task').run(appState)
- *   saveTodos(newState.todos)  // Persist to localStorage
- */
-export const saveTodos = (todos: Todos): void => {
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-};
+/** A minimal storage interface — anything that can read/write a string by key. */
+export interface StorageEnv {
+	readonly storage: Pick<Storage, 'getItem' | 'setItem'>;
+}
+
+/** Recoverable failures from the persistence layer. */
+export type StorageError =
+	| { readonly tag: 'WriteFailed'; readonly cause: unknown }
+	| { readonly tag: 'ReadFailed'; readonly cause: unknown }
+	| { readonly tag: 'ParseFailed'; readonly cause: unknown };
+
+/** Lift JSON.parse into Either, mapping any throw into a typed ParseFailed. */
+const parseTodos = (raw: string): Either.Either<StorageError, Todos> =>
+	Either.tryCatch<StorageError, Todos>(
+		() => JSON.parse(raw) as Todos,
+		(cause) => ({ tag: 'ParseFailed', cause })
+	);
 
 /**
- * Load todos from browser localStorage.
- *
- * This performs a side effect (reading from the browser's storage).
- * Call this on app startup to restore the saved todo list.
- *
- * Note: Only todos are persisted to localStorage. History and future are
- * session-only and reset on page refresh (this is intentional - undo/redo
- * should not survive across browser sessions).
- *
- * @returns The saved todos, or an empty array if nothing is stored
+ * Save todos to the injected storage.
  *
  * @example
- *   const todos = loadTodos()  // Restore on app load
- *   const initialState = {
- *     todos,
- *     filter: 'All',
- *     history: [],
- *     future: []
- *   }
+ *   const [_, newState] = addWithHistory('Buy milk').run(appState);
+ *   const result = await ReaderEitherAsync
+ *     .runReaderEitherAsync({ storage: localStorage })(saveTodos(newState.todos));
+ *   // result: Either<StorageError, void>
  */
-export const loadTodos = (): Todos => {
-	const saved = localStorage.getItem(STORAGE_KEY);
-	return saved ? JSON.parse(saved) : [];
-};
+export const saveTodos = (
+	todos: Todos
+): ReaderEitherAsync.ReaderEitherAsync<StorageEnv, StorageError, void> =>
+	ReaderEitherAsync.tryCatch(
+		({ storage }) => Promise.resolve(storage.setItem(STORAGE_KEY, JSON.stringify(todos))),
+		(cause): StorageError => ({ tag: 'WriteFailed', cause })
+	);
+
+/** Read the raw stored string (or null when absent). Lifted to REA so it composes. */
+const readRaw: ReaderEitherAsync.ReaderEitherAsync<StorageEnv, StorageError, string | null> =
+	ReaderEitherAsync.tryCatch(
+		({ storage }) => Promise.resolve(storage.getItem(STORAGE_KEY)),
+		(cause): StorageError => ({ tag: 'ReadFailed', cause })
+	);
+
+/**
+ * Load todos from the injected storage.
+ *
+ * Returns Right([]) when the key is absent (a fresh app), Left when the
+ * read or parse fails. History/future are session-only and not persisted.
+ *
+ * @example
+ *   const result = await ReaderEitherAsync
+ *     .runReaderEitherAsync({ storage: localStorage })(loadTodos);
+ *   // result: Either<StorageError, Todos>
+ */
+export const loadTodos: ReaderEitherAsync.ReaderEitherAsync<StorageEnv, StorageError, Todos> =
+	ReaderEitherAsync.chain<StorageEnv, StorageError, string | null, Todos>((raw) =>
+		raw === null
+			? ReaderEitherAsync.of<Todos>([])
+			: ReaderEitherAsync.liftEither(parseTodos(raw))
+	)(readRaw);

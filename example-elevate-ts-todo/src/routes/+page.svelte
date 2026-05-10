@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../styles/tokens.css';
 	import { getContext, onMount } from 'svelte';
+	import * as ReaderEitherAsync from '@zambit/elevate-ts/ReaderEitherAsync';
 	import {
 		addWithHistory,
 		toggleWithHistory,
@@ -12,9 +13,15 @@
 		saveTodos,
 		loadTodos,
 		undo,
-		redo
+		redo,
+		type StorageEnv
 	} from '$lib/domain.js';
 	import type { AppState, AuditEntry, Todo } from '$lib/types.js';
+
+	// SSR-safe env: localStorage is only present in the browser.
+	// During prerender / +page.svelte SSR, storageEnv is null and persistence is skipped.
+	const storageEnv: StorageEnv | null =
+		typeof localStorage !== 'undefined' ? { storage: localStorage } : null;
 
 	interface AuditContext {
 		enabled: boolean;
@@ -58,15 +65,23 @@
 
 	let inputValue = $state('');
 
-	onMount(() => {
-		const loaded = loadTodos();
-		appState = {
-			todos: loaded,
-			filter: 'All',
-			history: [],
-			future: []
-		};
+	onMount(async () => {
+		if (!storageEnv) return;
+		const result = await ReaderEitherAsync.runReaderEitherAsync(storageEnv)(loadTodos);
+		if (result.tag === 'Right') {
+			appState = { todos: result.right, filter: 'All', history: [], future: [] };
+		} else {
+			console.warn('[storage] load failed', result.left);
+		}
 	});
+
+	/** Persist the latest todos. Fire-and-forget — UI updates do not wait on storage. */
+	const persist = (todos: AppState['todos']): void => {
+		if (!storageEnv) return;
+		ReaderEitherAsync.runReaderEitherAsync(storageEnv)(saveTodos(todos)).then((result) => {
+			if (result.tag === 'Left') console.warn('[storage] save failed', result.left);
+		});
+	};
 
 	/** Run a domain function and persist state, optionally recording to audit */
 	const execute = (opName: string) => (fn: StateMonad) => {
@@ -76,7 +91,7 @@
 		if (audit.enabled) {
 			audit.record(opName, before, newState);
 		}
-		saveTodos(appState.todos);
+		persist(appState.todos);
 	};
 
 	/** Handle adding a new todo */

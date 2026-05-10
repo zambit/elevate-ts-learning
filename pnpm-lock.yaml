@@ -82,8 +82,8 @@ importers:
   example-elevate-ts-todo:
     dependencies:
       '@zambit/elevate-ts':
-        specifier: ^0.4.2
-        version: 0.4.2
+        specifier: ^0.5.0
+        version: 0.5.0
     devDependencies:
       '@eslint/compat':
         specifier: ^2.0.3
@@ -1190,8 +1190,8 @@ packages:
   '@vitest/utils@4.1.4':
     resolution: {integrity: sha512-13QMT+eysM5uVGa1rG4kegGYNp6cnQcsTc67ELFbhNLQO+vgsygtYJx2khvdt4gVQqSSpC/KT5FZZxUpP3Oatw==}
 
-  '@zambit/elevate-ts@0.4.2':
-    resolution: {integrity: sha512-uDmy3KLdTu2J8UpjGuFKidhSNBy+lfme0TOHr0Omcy19FHZ19Rmrl6BD+862gm/VKOpzs0rIzY+g7IX39ETSbA==}
+  '@zambit/elevate-ts@0.5.0':
+    resolution: {integrity: sha512-f6ytYggYffBjT94X7F01+sqeS2yUgvYvY3Ort/dwkmhTBXPr3lqyoGuXV1Kp8TnOPT6awijv9oz9fgbVVf6X9g==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2977,7 +2977,7 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@zambit/elevate-ts@0.4.2': {}
+  '@zambit/elevate-ts@0.5.0': {}
 
   acorn-jsx@5.3.2(acorn@8.16.0):
     dependencies:
