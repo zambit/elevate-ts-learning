@@ -8,6 +8,9 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	// Injected by vite.config.ts `define`: the installed effect version.
+	const __LIB_VERSION__: string;
 }
 
 export {};

@@ -20,7 +20,7 @@
 		<button class="close-btn" onclick={() => (open = false)} aria-label="Close">&#x2715;</button>
 		<h2>About</h2>
 		<p>This app demonstrates functional programming patterns using:</p>
-		<p class="lib-name">purify-ts</p>
+		<p class="lib-name">purify-ts <span class="lib-version">v{__LIB_VERSION__}</span></p>
 		<section>
 			<h3>Install</h3>
 			<pre><code>npm install purify-ts</code></pre>
@@ -101,6 +101,13 @@
 		color: #43464d;
 		font-size: 1rem;
 		margin: 0.25rem 0 1rem;
+	}
+	.lib-version {
+		font-weight: 500;
+		font-size: 0.8rem;
+		color: #888;
+		font-family: monospace;
+		margin-left: 0.35rem;
 	}
 	pre {
 		background: #f4f4f4;
