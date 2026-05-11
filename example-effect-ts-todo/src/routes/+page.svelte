@@ -203,12 +203,9 @@
 	<footer class="footer">
 		<p>&copy; 2026 <a href="https://zambit.com" target="_blank">Zambit Technologies Corp.</a></p>
 		<nav>
-			<!-- svelte-ignore a11y_invalid_attribute -->
-			<a href="#">Acceptable Use</a>
-			<!-- svelte-ignore a11y_invalid_attribute -->
-			<a href="#">Privacy Policy</a>
-			<!-- svelte-ignore a11y_invalid_attribute -->
-			<a href="#">Terms of Service</a>
+			<a href="/acceptable-use">Acceptable Use</a>
+			<a href="/privacy-policy">Privacy Policy</a>
+			<a href="/terms-of-service">Terms of Service</a>
 		</nav>
 	</footer>
 </div>
