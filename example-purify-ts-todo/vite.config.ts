@@ -1,8 +1,18 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 
+// Read the installed FP-library version so the About panel can surface
+// exactly what the demo was built against (not the declared range).
+const libVersion = JSON.parse(
+	readFileSync('./node_modules/purify-ts/package.json', 'utf-8')
+).version;
+
 export default defineConfig({
 	plugins: [sveltekit()],
+	define: {
+		__LIB_VERSION__: JSON.stringify(libVersion)
+	},
 	test: {
 		expect: { requireAssertions: true },
 		coverage: {
